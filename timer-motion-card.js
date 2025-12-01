@@ -162,6 +162,36 @@ class TimerMotionCard extends HTMLElement {
   connectedCallback() {
     if (this._hass) {
       this.render();
+      // Check for existing timer when page loads
+      if (this.config && this.config.timer_enabled && this.config.entity && this._hass.states) {
+        const entity = this._hass.states[this.config.entity];
+        if (entity && entity.state === 'on') {
+          // Calculate remaining time from stored expiration
+          this.calculateRemainingTime();
+          if (this.remainingTime > 0) {
+            // Timer is still active - start the interval
+            if (!this.timerInterval) {
+              this.timerInterval = setInterval(() => {
+                this.updateTimer();
+              }, 1000);
+            }
+            this.updateTimerDisplay();
+          } else if (this.remainingTime <= 0) {
+            // Timer expired while page was closed - turn off light
+            this.callService('turn_off', this.config.entity);
+            const timerKey = `timer_expiration_${this.config.entity}`;
+            localStorage.removeItem(timerKey);
+            localStorage.removeItem(`timer_start_${this.config.entity}`);
+            this.remainingTime = 0;
+          }
+        } else {
+          // Light is off - clear any timer data
+          const timerKey = `timer_expiration_${this.config.entity}`;
+          localStorage.removeItem(timerKey);
+          localStorage.removeItem(`timer_start_${this.config.entity}`);
+          this.remainingTime = 0;
+        }
+      }
       this.setupEventListeners();
     }
   }
