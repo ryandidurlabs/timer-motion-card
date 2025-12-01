@@ -163,7 +163,13 @@ class TimerMotionCard extends HTMLElement {
     
     this.saveSettings();
     this.setupEventListeners(); // Re-setup listeners if motion/timer/entity changed
-    this.render();
+    // Only re-render if entity changed or motion/timer state changed (not for every setting)
+    if (key === 'entity' || key === 'motion_enabled' || key === 'timer_enabled') {
+      this.render();
+    } else {
+      // Just update the display without full re-render
+      this.updateEntityState();
+    }
   }
 
   connectedCallback() {
@@ -1136,6 +1142,7 @@ class TimerMotionCard extends HTMLElement {
           width: 100%;
           padding: 0;
           height: 42px;
+          --mush-control-height: 42px;
         }
         .brightness-label {
           display: flex;
@@ -1639,7 +1646,7 @@ class TimerMotionCardEditor extends HTMLElement {
         </div>
         <div class="config-row">
           <ha-switch
-            checked="${this._config.fill_container || false}"
+            checked="${this._config.fill_container === true}"
             config-value="fill_container"
           ></ha-switch>
           <span>Fill Container</span>
@@ -1688,28 +1695,28 @@ class TimerMotionCardEditor extends HTMLElement {
         <h3>Controls</h3>
         <div class="config-row">
           <ha-switch
-            checked="${this._config.show_brightness_control || false}"
+            checked="${this._config.show_brightness_control === true}"
             config-value="show_brightness_control"
           ></ha-switch>
           <span>Show Brightness Control</span>
         </div>
         <div class="config-row">
           <ha-switch
-            checked="${this._config.show_color_temp_control || false}"
+            checked="${this._config.show_color_temp_control === true}"
             config-value="show_color_temp_control"
           ></ha-switch>
           <span>Show Color Temperature Control</span>
         </div>
         <div class="config-row">
           <ha-switch
-            checked="${this._config.show_color_control || false}"
+            checked="${this._config.show_color_control === true}"
             config-value="show_color_control"
           ></ha-switch>
           <span>Show Color Control</span>
         </div>
         <div class="config-row">
           <ha-switch
-            checked="${this._config.collapsible_controls || false}"
+            checked="${this._config.collapsible_controls === true}"
             config-value="collapsible_controls"
           ></ha-switch>
           <span>Collapsible Controls</span>
