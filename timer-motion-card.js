@@ -350,9 +350,14 @@ class TimerMotionCard extends HTMLElement {
   }
 
   callService(service, entityId) {
-    if (!this._hass) return;
-    const domain = entityId.split('.')[0];
-    this._hass.callService(domain, service, { entity_id: entityId });
+    if (!this._hass || !entityId) return;
+    try {
+      const domain = entityId.split('.')[0];
+      if (!domain) return;
+      this._hass.callService(domain, service, { entity_id: entityId });
+    } catch (error) {
+      console.error('Timer Motion Card: Error calling service', error);
+    }
   }
 
   handleCardClick(e) {
@@ -369,18 +374,22 @@ class TimerMotionCard extends HTMLElement {
   }
 
   toggleEntity(e) {
-    if (!this._hass || !this._hass.states) return;
+    if (!this._hass || !this._hass.states || !this.config || !this.config.entity) return;
     
-    const entity = this._hass.states[this.config.entity];
-    if (!entity) return;
+    try {
+      const entity = this._hass.states[this.config.entity];
+      if (!entity) return;
 
-    if (entity.state === 'on') {
-      this.callService('turn_off', this.config.entity);
-    } else {
-      this.callService('turn_on', this.config.entity);
-      if (this.config.timer_enabled) {
-        this.startTimer();
+      if (entity.state === 'on') {
+        this.callService('turn_off', this.config.entity);
+      } else {
+        this.callService('turn_on', this.config.entity);
+        if (this.config.timer_enabled) {
+          this.startTimer();
+        }
       }
+    } catch (error) {
+      console.error('Timer Motion Card: Error toggling entity', error);
     }
   }
 
@@ -478,12 +487,13 @@ class TimerMotionCard extends HTMLElement {
   }
 
   handleAction(action) {
-    if (!this._hass || !action) return;
+    if (!this._hass || !action || !this.config) return;
     
-    switch (action.action) {
-      case 'toggle':
-        this.toggleEntity();
-        break;
+    try {
+      switch (action.action) {
+        case 'toggle':
+          this.toggleEntity();
+          break;
       case 'more-info':
         this.fireEvent('hass-more-info', { entityId: this.config.entity });
         break;
@@ -502,6 +512,9 @@ class TimerMotionCard extends HTMLElement {
         break;
       case 'none':
         break;
+      }
+    } catch (error) {
+      console.error('Timer Motion Card: Error handling action', error);
     }
   }
 
