@@ -43,8 +43,8 @@ git add .
 # Create initial commit
 git commit -m "Initial release: Timer Motion Card v1.0.0"
 
-# Add remote repository (replace with your repo URL)
-git remote add origin https://github.com/yourusername/timer-motion-card.git
+# Add remote repository
+git remote add origin https://github.com/ryandidurlabs/timer-motion-card.git
 
 # Push to repository
 git branch -M main
@@ -71,7 +71,7 @@ For version tracking, create a GitHub release:
 3. Click the three dots menu (⋮) → **Custom repositories**
 4. Click **"Add"**
 5. Enter:
-   - **Repository**: `https://github.com/yourusername/timer-motion-card`
+   - **Repository**: `https://github.com/ryandidurlabs/timer-motion-card`
    - **Category**: `Lovelace`
 6. Click **"Add"**
 7. Search for "Timer Motion Card"

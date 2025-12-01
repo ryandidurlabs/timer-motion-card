@@ -26,7 +26,7 @@ A custom Lovelace card that adds timer and motion sensor functionality to any li
    - Click the three dots menu (⋮) in the top right → **Custom repositories**
    - Click **"Add"**
    - Enter:
-     - **Repository**: `https://github.com/yourusername/timer-motion-card` (replace with your repo URL)
+     - **Repository**: `https://github.com/ryandidurlabs/timer-motion-card`
      - **Category**: `Lovelace`
    - Click **"Add"**
 

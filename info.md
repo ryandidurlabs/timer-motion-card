@@ -19,7 +19,7 @@ A custom Lovelace card that adds timer and motion sensor functionality to any li
 2. Go to **Frontend**
 3. Click the three dots menu (⋮) → **Custom repositories**
 4. Add this repository:
-   - **Repository**: `https://github.com/yourusername/timer-motion-card` (or your repo URL)
+   - **Repository**: `https://github.com/ryandidurlabs/timer-motion-card`
    - **Category**: `Lovelace`
 5. Click **"Add"**
 6. Search for "Timer Motion Card" in HACS

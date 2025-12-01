@@ -46,7 +46,7 @@ timer-motion-card/
 
 3. **Push to GitHub**:
    ```bash
-   git remote add origin https://github.com/YOUR_USERNAME/timer-motion-card.git
+   git remote add origin https://github.com/ryandidurlabs/timer-motion-card.git
    git branch -M main
    git push -u origin main
    ```
@@ -66,7 +66,7 @@ timer-motion-card/
 3. Click **⋮** (three dots) → **Custom repositories**
 4. Click **"Add"**
 5. Enter:
-   - **Repository**: `https://github.com/YOUR_USERNAME/timer-motion-card`
+   - **Repository**: `https://github.com/ryandidurlabs/timer-motion-card`
    - **Category**: `Lovelace`
 6. Click **"Add"**
 7. Search for "Timer Motion Card"
