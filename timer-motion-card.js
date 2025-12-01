@@ -335,7 +335,7 @@ class TimerMotionCard extends HTMLElement {
       if (!entity) return;
 
       const stateElement = this.shadowRoot.querySelector('.mushroom-state-info .secondary');
-      const motionIcon = this.shadowRoot.querySelector('.motion-icon-header');
+      const motionIcon = this.shadowRoot.querySelector('.motion-icon-corner');
       
       // Update state display if element exists
       if (stateElement) {
@@ -851,20 +851,27 @@ class TimerMotionCard extends HTMLElement {
           font-weight: 500;
           color: var(--mush-warning-text-color, #ff9800);
         }
-        .motion-icon-header {
-          display: inline-flex;
-          align-items: center;
-          margin-left: 8px;
+        .mushroom-card {
+          position: relative;
         }
-        .motion-icon-header.active {
+        .motion-icon-corner {
+          position: absolute;
+          bottom: 8px;
+          right: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 10;
+        }
+        .motion-icon-corner.active {
           color: var(--mush-success-text-color, #4caf50);
         }
-        .motion-icon-header:not(.active) {
+        .motion-icon-corner:not(.active) {
           color: var(--secondary-text-color, rgba(0,0,0,0.54));
         }
-        .motion-icon-header ha-icon {
-          width: 16px;
-          height: 16px;
+        .motion-icon-corner ha-icon {
+          width: 12px;
+          height: 12px;
         }
         .error {
           color: var(--error-color, #f44336);
@@ -948,7 +955,7 @@ class TimerMotionCard extends HTMLElement {
             ` : ''}
             <div class="mushroom-state-info">
               ${primaryInfo === 'name' ? `
-                <div class="primary">${name}${this.config.motion_enabled ? `<span class="motion-icon-header ${motionActive ? 'active' : ''}"><ha-icon icon="mdi:motion-sensor"></ha-icon></span>` : ''}</div>
+                <div class="primary">${name}</div>
               ` : ''}
               ${primaryInfo === 'state' ? `
                 <div class="primary">${stateDisplay}</div>
