@@ -537,7 +537,7 @@ class TimerMotionCard extends HTMLElement {
       iconStyleColor = `rgb(${color})`;
       const isLight = this.isColorLight(lightRgbColor);
       const isSuperLight = this.isColorSuperLight(lightRgbColor);
-      const darkMode = (this._hass.themes && (this._hass.themes as any).darkMode) || false;
+      const darkMode = (this._hass.themes && this._hass.themes.darkMode) || false;
       if (isLight && !darkMode) {
         shapeColor = `rgba(var(--rgb-primary-text-color), 0.05)`;
         if (isSuperLight) {
@@ -618,7 +618,7 @@ class TimerMotionCard extends HTMLElement {
     if (lightRgbColor && useLightColor && isOn) {
       const color = lightRgbColor.join(',');
       const isLight = this.isColorLight(lightRgbColor);
-      const darkMode = (this._hass.themes && (this._hass.themes as any).darkMode) || false;
+      const darkMode = (this._hass.themes && this._hass.themes.darkMode) || false;
       if (isLight && !darkMode) {
         sliderBgColor = 'rgba(var(--rgb-primary-text-color), 0.05)';
         sliderColor = 'rgba(var(--rgb-primary-text-color), 0.15)';
