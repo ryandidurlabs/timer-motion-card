@@ -957,6 +957,16 @@ class TimerMotionCard extends HTMLElement {
     }
 
     this.updateEntityState();
+    } catch (error) {
+      console.error('Timer Motion Card: Error rendering card', error);
+      if (this.shadowRoot) {
+        this.shadowRoot.innerHTML = `
+          <ha-card>
+            <div class="error">Error rendering card: ${error.message}</div>
+          </ha-card>
+        `;
+      }
+    }
   }
 
   renderSettingsModal() {
