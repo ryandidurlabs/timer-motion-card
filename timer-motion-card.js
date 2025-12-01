@@ -1151,6 +1151,11 @@ class TimerMotionCard extends HTMLElement {
   get hass() {
     return this._hass;
   }
+
+  // Required for Lovelace card discovery
+  getCardSize() {
+    return 1;
+  }
 }
 
 customElements.define('timer-motion-card', TimerMotionCard);
@@ -1160,7 +1165,7 @@ if (!window.customCards) {
   window.customCards = [];
 }
 window.customCards.push({
-  type: 'timer-motion-card',
+  type: 'custom:timer-motion-card',
   name: 'Timer Motion Card',
   description: 'A card with timer and motion sensor functionality styled like Mushroom cards',
   preview: true,
