@@ -1156,15 +1156,16 @@ class TimerMotionCard extends HTMLElement {
 customElements.define('timer-motion-card', TimerMotionCard);
 
 // Register with Lovelace
-if (window.customCards) {
-  window.customCards.push({
-    type: 'timer-motion-card',
-    name: 'Timer Motion Card',
-    description: 'A card with timer and motion sensor functionality styled like Mushroom cards',
-    preview: true,
-    documentationURL: 'https://github.com/ryandidurlabs/timer-motion-card',
-  });
+if (!window.customCards) {
+  window.customCards = [];
 }
+window.customCards.push({
+  type: 'timer-motion-card',
+  name: 'Timer Motion Card',
+  description: 'A card with timer and motion sensor functionality styled like Mushroom cards',
+  preview: true,
+  documentationURL: 'https://github.com/ryandidurlabs/timer-motion-card',
+});
 
 // Card editor for Lovelace UI
 class TimerMotionCardEditor extends HTMLElement {
