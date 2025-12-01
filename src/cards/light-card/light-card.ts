@@ -102,6 +102,8 @@ export class LightCard
 
   private _timerExpirationTime?: number; // timestamp when timer expires
 
+  private _stateUnsub?: () => void;
+
   private get _controls(): LightCardControl[] {
     if (!this._config || !this._stateObj) return [];
 
@@ -155,20 +157,73 @@ export class LightCard
       this.updateActiveControl();
       this.updateBrightness();
       this.checkTimerState();
+      this.subscribeToStateChanges();
     }
     if (changedProperties.has("_config")) {
       this.initializeTimer();
+      this.subscribeToStateChanges();
     }
   }
 
   connectedCallback() {
     super.connectedCallback();
     this.initializeTimer();
+    this.subscribeToStateChanges();
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     this.clearTimer();
+    if (this._stateUnsub) {
+      this._stateUnsub();
+      this._stateUnsub = undefined;
+    }
+  }
+
+  private subscribeToStateChanges(): void {
+    if (!this.hass?.connection || !this._config?.entity) return;
+
+    // Unsubscribe from previous subscription if any
+    if (this._stateUnsub) {
+      this._stateUnsub();
+    }
+
+    try {
+      this._stateUnsub = this.hass.connection.subscribeEvents(
+        (ev) => {
+          if (ev.data?.entity_id === this._config?.entity) {
+            const newState = ev.data.new_state;
+            const oldState = ev.data.old_state;
+            
+            // If light just turned on and timer is enabled, start timer
+            if (
+              newState?.state === "on" &&
+              oldState?.state !== "on" &&
+              this._config?.timer_enabled &&
+              !this._timerRemaining
+            ) {
+              this.startTimer();
+            }
+            
+            // If light just turned off, clear timer
+            if (
+              newState?.state === "off" &&
+              oldState?.state === "on" &&
+              this._config?.timer_enabled
+            ) {
+              this.clearTimer();
+            }
+            
+            // Update brightness and timer display
+            this.updateBrightness();
+            this.requestUpdate();
+          }
+        },
+        "state_changed"
+      );
+    } catch (e) {
+      console.warn("Timer Motion Card: Error subscribing to state changes", e);
+    }
   }
 
   updateBrightness() {
