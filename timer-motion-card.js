@@ -1120,7 +1120,7 @@ class TimerMotionCard extends HTMLElement {
         }
         .mushroom-brightness-control {
           flex: 1;
-          padding: 0 16px 16px 16px;
+          padding: 0;
         }
         .mushroom-brightness-control ha-slider {
           --slider-bar-color: ${sliderBgColor};
@@ -1134,7 +1134,8 @@ class TimerMotionCard extends HTMLElement {
           --slider-pin-font-size: 10px;
           --slider-pin-color: ${sliderColor};
           width: 100%;
-          padding: 8px 0;
+          padding: 0;
+          height: 42px;
         }
         .brightness-label {
           display: flex;
@@ -1238,15 +1239,21 @@ class TimerMotionCard extends HTMLElement {
             <div class="mushroom-state-info">
               ${primaryInfo === 'name' ? `
                 <div class="primary">${name}</div>
-              ` : ''}
-              ${primaryInfo === 'state' ? `
+              ` : primaryInfo === 'state' ? `
                 <div class="primary">${stateDisplay}</div>
-              ` : ''}
-              ${secondaryInfo === 'state' && primaryInfo !== 'state' ? `
-                <div class="secondary">${stateDisplay}</div>
+              ` : primaryInfo === 'last-changed' ? `
+                <div class="primary">${entity && entity.last_changed ? new Date(entity.last_changed).toLocaleString() : ''}</div>
+              ` : primaryInfo === 'last-updated' ? `
+                <div class="primary">${entity && entity.last_updated ? new Date(entity.last_updated).toLocaleString() : ''}</div>
               ` : ''}
               ${secondaryInfo === 'name' && primaryInfo !== 'name' ? `
                 <div class="secondary">${name}</div>
+              ` : secondaryInfo === 'state' && primaryInfo !== 'state' ? `
+                <div class="secondary">${stateDisplay}</div>
+              ` : secondaryInfo === 'last-changed' && primaryInfo !== 'last-changed' ? `
+                <div class="secondary">${entity && entity.last_changed ? new Date(entity.last_changed).toLocaleString() : ''}</div>
+              ` : secondaryInfo === 'last-updated' && primaryInfo !== 'last-updated' ? `
+                <div class="secondary">${entity && entity.last_updated ? new Date(entity.last_updated).toLocaleString() : ''}</div>
               ` : ''}
             </div>
             <div class="header-actions">
@@ -1348,38 +1355,6 @@ class TimerMotionCard extends HTMLElement {
         </div>
         <div class="settings-section">
           <div class="settings-row">
-            <div class="settings-label">Name</div>
-            <ha-textfield class="name-input settings-input" value="${this.config.name || ''}" placeholder="Card name"></ha-textfield>
-          </div>
-          <div class="settings-row">
-            <div class="settings-label">Entity</div>
-            <select class="entity-select settings-select" style="padding: 8px; border-radius: 4px; border: 1px solid var(--divider-color, rgba(0,0,0,0.12)); background: var(--card-background-color, #fff);">
-              <option value="">Select entity...</option>
-              ${availableEntities.map(entity => `<option value="${entity.entity_id}" ${entity.entity_id === this.config.entity ? 'selected' : ''}>${entity.name}</option>`).join('')}
-            </select>
-          </div>
-          <div class="settings-row">
-            <div class="settings-label">Icon</div>
-            <ha-textfield class="icon-input settings-input" value="${this.config.icon || ''}" placeholder="mdi:lightbulb"></ha-textfield>
-          </div>
-          <div class="settings-row">
-            <div class="settings-label">Card Width</div>
-            <ha-textfield class="width-input settings-input" value="${this.config.width || ''}" placeholder="e.g. 200px, 50%"></ha-textfield>
-          </div>
-          <div class="settings-row">
-            <div class="settings-label">Card Height</div>
-            <ha-textfield class="height-input settings-input" value="${this.config.height || ''}" placeholder="e.g. 150px, auto"></ha-textfield>
-          </div>
-          <div class="settings-row">
-            <div>
-              <div class="settings-label">Show Brightness Slider</div>
-              <div class="settings-description">Display brightness control for dimmable lights</div>
-            </div>
-            <ha-switch class="brightness-switch" ${this.config.show_brightness !== false ? 'checked' : ''}></ha-switch>
-          </div>
-        </div>
-        <div class="settings-section">
-          <div class="settings-row">
             <div>
               <div class="settings-label">Enable Timer</div>
               <div class="settings-description">Automatically turn off after duration</div>
@@ -1388,7 +1363,7 @@ class TimerMotionCard extends HTMLElement {
           </div>
           <div class="timer-duration-row" style="display: ${this.config.timer_enabled ? 'flex' : 'none'}">
             <div class="settings-label">Timer Duration (seconds)</div>
-            <ha-textfield class="timer-duration-input settings-input" type="number" value="${this.config.timer_duration}"></ha-textfield>
+            <ha-textfield class="timer-duration-input settings-input" type="number" value="${this.config.timer_duration || 300}"></ha-textfield>
           </div>
         </div>
         <div class="settings-section">
@@ -1398,19 +1373,6 @@ class TimerMotionCard extends HTMLElement {
               <div class="settings-description">Automatically control based on motion</div>
             </div>
             <ha-switch class="motion-switch" ${this.config.motion_enabled ? 'checked' : ''}></ha-switch>
-          </div>
-          <div class="motion-settings-row" style="display: ${this.config.motion_enabled ? 'flex' : 'none'}; flex-direction: column; gap: 12px;">
-            <div class="settings-row">
-              <div class="settings-label">Motion Sensor</div>
-              <select class="motion-sensor-select settings-select" style="padding: 8px; border-radius: 4px; border: 1px solid var(--divider-color, rgba(0,0,0,0.12)); background: var(--card-background-color, #fff);">
-                <option value="">Select sensor...</option>
-                ${motionSensors.map(sensor => `<option value="${sensor.entity_id}" ${sensor.entity_id === this.config.motion_sensor ? 'selected' : ''}>${sensor.name}</option>`).join('')}
-              </select>
-            </div>
-            <div class="settings-row">
-              <div class="settings-label">Motion Off Delay (seconds)</div>
-              <ha-textfield class="motion-delay-input settings-input" type="number" value="${this.config.motion_off_delay}"></ha-textfield>
-            </div>
           </div>
         </div>
       </div>
@@ -1459,73 +1421,7 @@ class TimerMotionCard extends HTMLElement {
     motionSwitch.addEventListener('change', (e) => {
       e.stopPropagation();
       this.updateSetting('motion_enabled', e.target.checked);
-      const motionRow = modal.querySelector('.motion-settings-row');
-      motionRow.style.display = e.target.checked ? 'flex' : 'none';
     });
-
-    const motionSensorSelect = modal.querySelector('.motion-sensor-select');
-    if (motionSensorSelect) {
-      motionSensorSelect.addEventListener('change', (e) => {
-        e.stopPropagation();
-        this.updateSetting('motion_sensor', e.target.value);
-      });
-    }
-
-    const motionDelayInput = modal.querySelector('.motion-delay-input');
-    motionDelayInput.addEventListener('change', (e) => {
-      e.stopPropagation();
-      this.updateSetting('motion_off_delay', parseInt(e.target.value) || 60);
-    });
-
-    const nameInput = modal.querySelector('.name-input');
-    if (nameInput) {
-      nameInput.addEventListener('change', (e) => {
-        e.stopPropagation();
-        this.updateSetting('name', e.target.value);
-      });
-    }
-
-    const entitySelect = modal.querySelector('.entity-select');
-    if (entitySelect) {
-      entitySelect.addEventListener('change', (e) => {
-        e.stopPropagation();
-        if (e.target.value) {
-          this.updateSetting('entity', e.target.value);
-        }
-      });
-    }
-
-    const iconInput = modal.querySelector('.icon-input');
-    if (iconInput) {
-      iconInput.addEventListener('change', (e) => {
-        e.stopPropagation();
-        this.updateSetting('icon', e.target.value);
-      });
-    }
-
-    const widthInput = modal.querySelector('.width-input');
-    if (widthInput) {
-      widthInput.addEventListener('change', (e) => {
-        e.stopPropagation();
-        this.updateSetting('width', e.target.value);
-      });
-    }
-
-    const heightInput = modal.querySelector('.height-input');
-    if (heightInput) {
-      heightInput.addEventListener('change', (e) => {
-        e.stopPropagation();
-        this.updateSetting('height', e.target.value);
-      });
-    }
-
-    const brightnessSwitch = modal.querySelector('.brightness-switch');
-    if (brightnessSwitch) {
-      brightnessSwitch.addEventListener('change', (e) => {
-        e.stopPropagation();
-        this.updateSetting('show_brightness', e.target.checked);
-      });
-    }
 
     this.shadowRoot.appendChild(modal);
   }
@@ -1789,7 +1685,7 @@ class TimerMotionCardEditor extends HTMLElement {
         <h3>Controls</h3>
         <div class="config-row">
           <ha-switch
-            checked="${this._config.show_brightness_control !== false}"
+            checked="${this._config.show_brightness_control || false}"
             config-value="show_brightness_control"
           ></ha-switch>
           <span>Show Brightness Control</span>
