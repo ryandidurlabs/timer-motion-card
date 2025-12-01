@@ -44,6 +44,7 @@ class TimerMotionCard extends HTMLElement {
       // Timer and motion options
       timer_enabled: false,
       timer_duration: 300,
+      default_brightness: null, // 0-100, null means use current/default
       motion_enabled: false,
       motion_sensor: '',
       motion_off_delay: 60,
@@ -258,8 +259,19 @@ class TimerMotionCard extends HTMLElement {
   startTimer() {
     if (!this.config || !this.config.timer_enabled) return;
     try {
+      // Clear any existing interval
+      if (this.timerInterval) {
+        clearInterval(this.timerInterval);
+        this.timerInterval = null;
+      }
+      
       this.remainingTime = this.config.timer_duration || 300;
-      this.updateTimer();
+      this.updateTimerDisplay();
+      
+      // Start the countdown interval
+      this.timerInterval = setInterval(() => {
+        this.updateTimer();
+      }, 1000);
     } catch (error) {
       console.error('Timer Motion Card: Error starting timer', error);
     }
@@ -396,12 +408,23 @@ class TimerMotionCard extends HTMLElement {
     }
   }
 
-  callService(service, entityId) {
+  callService(service, entityId, options = {}) {
     if (!this._hass || !entityId) return;
     try {
       const domain = entityId.split('.')[0];
       if (!domain) return;
-      this._hass.callService(domain, service, { entity_id: entityId });
+      const serviceData = { entity_id: entityId, ...options };
+      
+      // If turning on and default_brightness is set and brightness control is supported
+      if (service === 'turn_on' && this.config.default_brightness !== null && this.config.default_brightness !== undefined) {
+        const entity = this._hass.states[entityId];
+        if (entity && this.supportsBrightnessControl(entity) && this.config.show_brightness_control !== false) {
+          const brightness = Math.round((this.config.default_brightness / 100) * 255);
+          serviceData.brightness = brightness;
+        }
+      }
+      
+      this._hass.callService(domain, service, serviceData);
     } catch (error) {
       console.error('Timer Motion Card: Error calling service', error);
     }
@@ -1527,7 +1550,12 @@ class TimerMotionCardEditor extends HTMLElement {
           const newConfig = { ...this._config };
           const value = input.value;
           if (input.type === 'number') {
-            newConfig[configValue] = value ? parseInt(value, 10) : undefined;
+            // For default_brightness, allow empty string to mean null
+            if (configValue === 'default_brightness') {
+              newConfig[configValue] = value && value !== '' ? parseInt(value, 10) : null;
+            } else {
+              newConfig[configValue] = value ? parseInt(value, 10) : undefined;
+            }
           } else {
             newConfig[configValue] = value;
           }
