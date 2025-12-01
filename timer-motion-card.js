@@ -1160,12 +1160,12 @@ class TimerMotionCard extends HTMLElement {
 
 customElements.define('timer-motion-card', TimerMotionCard);
 
-// Register with Lovelace
+// Register with Lovelace (Mushroom style - type without 'custom:' prefix)
 if (!window.customCards) {
   window.customCards = [];
 }
 window.customCards.push({
-  type: 'custom:timer-motion-card',
+  type: 'timer-motion-card',
   name: 'Timer Motion Card',
   description: 'A card with timer and motion sensor functionality styled like Mushroom cards',
   preview: true,
