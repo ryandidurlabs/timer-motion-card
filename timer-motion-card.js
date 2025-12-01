@@ -1583,6 +1583,7 @@ class TimerMotionCardEditor extends HTMLElement {
   }
 
   configChanged(newConfig) {
+    this._config = newConfig;
     const event = new CustomEvent('config-changed', {
       detail: { config: newConfig },
       bubbles: true,
