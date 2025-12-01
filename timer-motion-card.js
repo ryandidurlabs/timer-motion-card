@@ -1113,12 +1113,18 @@ class TimerMotionCard extends HTMLElement {
         }
         .mushroom-brightness-control {
           flex: 1;
-          --slider-color: ${sliderColor};
-          --slider-bg-color: ${sliderBgColor};
+          padding: 0 16px 16px 16px;
         }
         .mushroom-brightness-control ha-slider {
-          --paper-slider-active-color: var(--slider-color);
-          --paper-slider-secondary-color: var(--slider-bg-color);
+          --slider-bar-color: ${sliderBgColor};
+          --slider-bar-active-color: ${sliderColor};
+          --slider-handle-color: ${sliderColor};
+          --slider-handle-size: 20px;
+          --slider-handle-border-width: 2px;
+          --slider-handle-border-color: var(--card-background-color, #fff);
+          --slider-bar-height: 4px;
+          --slider-bar-border-radius: 2px;
+          width: 100%;
         }
         .brightness-label {
           display: flex;
@@ -1563,7 +1569,17 @@ customElements.define('timer-motion-card', TimerMotionCard);
 // Card editor for Lovelace UI
 class TimerMotionCardEditor extends HTMLElement {
   setConfig(config) {
-    this._config = config;
+    this._config = config || {};
+    if (this._hass) {
+      this.render();
+    }
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    if (this._config) {
+      this.render();
+    }
   }
 
   configChanged(newConfig) {
@@ -1576,11 +1592,13 @@ class TimerMotionCardEditor extends HTMLElement {
   }
 
   connectedCallback() {
-    this.render();
+    if (this._config) {
+      this.render();
+    }
   }
 
   render() {
-    if (!this._config) {
+    if (!this._config || !this._hass) {
       this.innerHTML = '<div>Loading...</div>';
       return;
     }
@@ -1588,19 +1606,23 @@ class TimerMotionCardEditor extends HTMLElement {
     this.innerHTML = `
       <div class="card-config">
         <div class="config-row">
-          <paper-input
-            label="Entity"
-            value="${this._config.entity || ''}"
-            config-value="entity"
-            placeholder="light.bedroom"
-          ></paper-input>
+          <label>Entity</label>
+          <ha-entity-picker
+            .hass="${this._hass}"
+            .value="${this._config.entity || ''}"
+            .configValue="${'entity'}"
+            .includeDomains="${['light', 'fan', 'switch']}"
+            allow-custom-entity
+          ></ha-entity-picker>
         </div>
         <div class="config-row">
-          <paper-input
-            label="Name (optional)"
+          <label>Name (optional)</label>
+          <ha-textfield
+            label="Name"
             value="${this._config.name || ''}"
             config-value="name"
-          ></paper-input>
+            placeholder="Leave empty to use entity name"
+          ></ha-textfield>
         </div>
         <div class="config-row">
           <ha-switch
@@ -1610,23 +1632,25 @@ class TimerMotionCardEditor extends HTMLElement {
           <span>Enable Timer</span>
         </div>
         <div class="config-row">
-          <paper-input
-            label="Timer Duration (seconds)"
+          <label>Timer Duration (seconds)</label>
+          <ha-textfield
+            label="Duration"
             value="${this._config.timer_duration || 300}"
             type="number"
             config-value="timer_duration"
-          ></paper-input>
+          ></ha-textfield>
         </div>
         <div class="config-row">
-          <paper-input
-            label="Default Brightness (%)"
+          <label>Default Brightness (%)</label>
+          <ha-textfield
+            label="Brightness"
             value="${this._config.default_brightness !== null && this._config.default_brightness !== undefined ? this._config.default_brightness : ''}"
             type="number"
             min="0"
             max="100"
             config-value="default_brightness"
             placeholder="Leave empty for default"
-          ></paper-input>
+          ></ha-textfield>
           <span style="font-size: 12px; color: var(--secondary-text-color);">0-100, only if brightness control enabled</span>
         </div>
         <div class="config-row">
@@ -1637,40 +1661,46 @@ class TimerMotionCardEditor extends HTMLElement {
           <span>Enable Motion Sensor</span>
         </div>
         <div class="config-row">
-          <paper-input
-            label="Motion Sensor Entity"
-            value="${this._config.motion_sensor || ''}"
-            config-value="motion_sensor"
-            placeholder="binary_sensor.motion_sensor"
-          ></paper-input>
+          <label>Motion Sensor Entity</label>
+          <ha-entity-picker
+            .hass="${this._hass}"
+            .value="${this._config.motion_sensor || ''}"
+            .configValue="${'motion_sensor'}"
+            .includeDomains="${['binary_sensor']}"
+            allow-custom-entity
+          ></ha-entity-picker>
         </div>
         <div class="config-row">
-          <paper-input
-            label="Motion Off Delay (seconds)"
+          <label>Motion Off Delay (seconds)</label>
+          <ha-textfield
+            label="Delay"
             value="${this._config.motion_off_delay || 60}"
             type="number"
             config-value="motion_off_delay"
-          ></paper-input>
+          ></ha-textfield>
         </div>
         <div class="config-row">
-          <paper-input
-            label="Icon"
-            value="${this._config.icon || ''}"
-            config-value="icon"
+          <label>Icon</label>
+          <ha-icon-picker
+            .hass="${this._hass}"
+            .value="${this._config.icon || ''}"
+            .configValue="${'icon'}"
             placeholder="mdi:lightbulb"
-          ></paper-input>
+          ></ha-icon-picker>
         </div>
         
         <h3>Appearance</h3>
         <div class="config-row">
           <label>Layout</label>
-          <paper-dropdown-menu label="Layout" config-value="layout">
-            <paper-listbox slot="dropdown-content" selected="${['default', 'horizontal', 'vertical'].indexOf(this._config.layout || 'default')}">
-              <paper-item>default</paper-item>
-              <paper-item>horizontal</paper-item>
-              <paper-item>vertical</paper-item>
-            </paper-listbox>
-          </paper-dropdown-menu>
+          <ha-select
+            label="Layout"
+            .value="${this._config.layout || 'default'}"
+            config-value="layout"
+          >
+            <mwc-list-item value="default">default</mwc-list-item>
+            <mwc-list-item value="horizontal">horizontal</mwc-list-item>
+            <mwc-list-item value="vertical">vertical</mwc-list-item>
+          </ha-select>
         </div>
         <div class="config-row">
           <ha-switch
@@ -1681,37 +1711,43 @@ class TimerMotionCardEditor extends HTMLElement {
         </div>
         <div class="config-row">
           <label>Primary Info</label>
-          <paper-dropdown-menu label="Primary Info" config-value="primary_info">
-            <paper-listbox slot="dropdown-content" selected="${['name', 'state', 'last-changed', 'last-updated', 'none'].indexOf(this._config.primary_info || 'name')}">
-              <paper-item>name</paper-item>
-              <paper-item>state</paper-item>
-              <paper-item>last-changed</paper-item>
-              <paper-item>last-updated</paper-item>
-              <paper-item>none</paper-item>
-            </paper-listbox>
-          </paper-dropdown-menu>
+          <ha-select
+            label="Primary Info"
+            .value="${this._config.primary_info || 'name'}"
+            config-value="primary_info"
+          >
+            <mwc-list-item value="name">name</mwc-list-item>
+            <mwc-list-item value="state">state</mwc-list-item>
+            <mwc-list-item value="last-changed">last-changed</mwc-list-item>
+            <mwc-list-item value="last-updated">last-updated</mwc-list-item>
+            <mwc-list-item value="none">none</mwc-list-item>
+          </ha-select>
         </div>
         <div class="config-row">
           <label>Secondary Info</label>
-          <paper-dropdown-menu label="Secondary Info" config-value="secondary_info">
-            <paper-listbox slot="dropdown-content" selected="${['name', 'state', 'last-changed', 'last-updated', 'none'].indexOf(this._config.secondary_info || 'state')}">
-              <paper-item>name</paper-item>
-              <paper-item>state</paper-item>
-              <paper-item>last-changed</paper-item>
-              <paper-item>last-updated</paper-item>
-              <paper-item>none</paper-item>
-            </paper-listbox>
-          </paper-dropdown-menu>
+          <ha-select
+            label="Secondary Info"
+            .value="${this._config.secondary_info || 'state'}"
+            config-value="secondary_info"
+          >
+            <mwc-list-item value="name">name</mwc-list-item>
+            <mwc-list-item value="state">state</mwc-list-item>
+            <mwc-list-item value="last-changed">last-changed</mwc-list-item>
+            <mwc-list-item value="last-updated">last-updated</mwc-list-item>
+            <mwc-list-item value="none">none</mwc-list-item>
+          </ha-select>
         </div>
         <div class="config-row">
           <label>Icon Type</label>
-          <paper-dropdown-menu label="Icon Type" config-value="icon_type">
-            <paper-listbox slot="dropdown-content" selected="${['icon', 'entity-picture', 'none'].indexOf(this._config.icon_type || 'icon')}">
-              <paper-item>icon</paper-item>
-              <paper-item>entity-picture</paper-item>
-              <paper-item>none</paper-item>
-            </paper-listbox>
-          </paper-dropdown-menu>
+          <ha-select
+            label="Icon Type"
+            .value="${this._config.icon_type || 'icon'}"
+            config-value="icon_type"
+          >
+            <mwc-list-item value="icon">icon</mwc-list-item>
+            <mwc-list-item value="entity-picture">entity-picture</mwc-list-item>
+            <mwc-list-item value="none">none</mwc-list-item>
+          </ha-select>
         </div>
         
         <h3>Controls</h3>
@@ -1774,8 +1810,10 @@ class TimerMotionCardEditor extends HTMLElement {
           min-width: 120px;
           font-size: 14px;
         }
-        .config-row paper-input,
-        .config-row paper-dropdown-menu {
+        .config-row ha-textfield,
+        .config-row ha-select,
+        .config-row ha-entity-picker,
+        .config-row ha-icon-picker {
           flex: 1;
         }
         .config-row ha-switch {
@@ -1784,47 +1822,50 @@ class TimerMotionCardEditor extends HTMLElement {
       </style>
     `;
 
-    // Add event listeners
-    const inputs = this.querySelectorAll('paper-input, ha-switch, paper-dropdown-menu');
-    inputs.forEach((input) => {
-      const configValue = input.getAttribute('config-value');
-      if (input.tagName === 'HA-SWITCH') {
-        input.addEventListener('change', (e) => {
-          const newConfig = { ...this._config };
-          newConfig[configValue] = input.checked;
-          this.configChanged(newConfig);
-        });
-      } else if (input.tagName === 'PAPER-DROPDOWN-MENU') {
-        input.addEventListener('iron-select', (e) => {
-          const newConfig = { ...this._config };
-          const listbox = input.querySelector('paper-listbox');
-          if (listbox) {
-            const selected = listbox.selected;
-            const items = listbox.querySelectorAll('paper-item');
-            if (items[selected]) {
-              newConfig[configValue] = items[selected].textContent.trim();
-              this.configChanged(newConfig);
-            }
-          }
-        });
-      } else {
-        input.addEventListener('change', (e) => {
-          const newConfig = { ...this._config };
-          const value = input.value;
-          if (input.type === 'number') {
-            // For default_brightness, allow empty string to mean null
-            if (configValue === 'default_brightness') {
-              newConfig[configValue] = value && value !== '' ? parseInt(value, 10) : null;
+    // Add event listeners - use setTimeout to ensure elements are in DOM
+    setTimeout(() => {
+      const inputs = this.querySelectorAll('ha-textfield, ha-switch, ha-select, ha-entity-picker, ha-icon-picker');
+      inputs.forEach((input) => {
+        const configValue = input.getAttribute('config-value') || (input.configValue ? input.configValue : null);
+        if (!configValue) return;
+        
+        if (input.tagName === 'HA-SWITCH') {
+          input.addEventListener('change', (e) => {
+            const newConfig = { ...this._config };
+            newConfig[configValue] = input.checked;
+            this.configChanged(newConfig);
+          });
+        } else if (input.tagName === 'HA-SELECT') {
+          input.addEventListener('change', (e) => {
+            const newConfig = { ...this._config };
+            newConfig[configValue] = input.value;
+            this.configChanged(newConfig);
+          });
+        } else if (input.tagName === 'HA-ENTITY-PICKER' || input.tagName === 'HA-ICON-PICKER') {
+          input.addEventListener('value-changed', (e) => {
+            const newConfig = { ...this._config };
+            newConfig[configValue] = e.detail.value || '';
+            this.configChanged(newConfig);
+          });
+        } else {
+          input.addEventListener('change', (e) => {
+            const newConfig = { ...this._config };
+            const value = input.value;
+            if (input.type === 'number') {
+              // For default_brightness, allow empty string to mean null
+              if (configValue === 'default_brightness') {
+                newConfig[configValue] = value && value !== '' ? parseInt(value, 10) : null;
+              } else {
+                newConfig[configValue] = value ? parseInt(value, 10) : undefined;
+              }
             } else {
-              newConfig[configValue] = value ? parseInt(value, 10) : undefined;
+              newConfig[configValue] = value;
             }
-          } else {
-            newConfig[configValue] = value;
-          }
-          this.configChanged(newConfig);
-        });
-      }
-    });
+            this.configChanged(newConfig);
+          });
+        }
+      });
+    }, 0);
   }
 }
 
