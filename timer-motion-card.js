@@ -302,50 +302,71 @@ class TimerMotionCard extends HTMLElement {
   }
 
   updateEntityState() {
-    if (!this._hass || !this._hass.states) return;
+    if (!this._hass || !this._hass.states || !this.config || !this.config.entity || !this.shadowRoot) return;
     
-    const entity = this._hass.states[this.config.entity];
-    if (!entity) return;
+    try {
+      const entity = this._hass.states[this.config.entity];
+      if (!entity) return;
 
-    const stateElement = this.shadowRoot.querySelector('.entity-state');
-    const iconElement = this.shadowRoot.querySelector('.entity-icon');
-    const motionIcon = this.shadowRoot.querySelector('.motion-icon-header');
-    const brightnessValue = this.shadowRoot.querySelector('.brightness-value');
-    
-    if (stateElement) {
-      stateElement.textContent = entity.state === 'on' ? 'ON' : 'OFF';
-    }
-
-    // Update motion icon state
-    if (motionIcon && this.config.motion_enabled && this.config.motion_sensor) {
-      const motionEntity = this._hass.states[this.config.motion_sensor];
-      const motionActive = motionEntity && 
-        (motionEntity.state === 'on' || motionEntity.state === 'detected');
-      if (motionActive) {
-        motionIcon.classList.add('active');
-      } else {
-        motionIcon.classList.remove('active');
+      const stateElement = this.shadowRoot.querySelector('.mushroom-state-info .secondary');
+      const motionIcon = this.shadowRoot.querySelector('.motion-icon-header');
+      
+      // Update state display if element exists
+      if (stateElement) {
+        const isOn = entity.state === 'on';
+        let brightness = 0;
+        if (entity.attributes && entity.attributes.brightness !== undefined && entity.attributes.brightness !== null) {
+          brightness = Number(entity.attributes.brightness);
+          if (isNaN(brightness)) brightness = 0;
+        }
+        const brightnessPct = brightness > 0 ? Math.max(0, Math.min(100, Math.round((brightness / 255) * 100))) : 0;
+        const timerText = (this.config.timer_enabled && this.remainingTime > 0) 
+          ? ` • ${this.formatTime(this.remainingTime)}` 
+          : '';
+        
+        if (brightness > 0 && this.supportsBrightnessControl(entity)) {
+          stateElement.textContent = `${brightnessPct}%${timerText}`;
+        } else {
+          const stateText = this._hass.formatEntityState ? 
+            this._hass.formatEntityState(entity) : 
+            (isOn ? 'On' : 'Off');
+          stateElement.textContent = `${stateText}${timerText}`;
+        }
       }
-    }
 
-    // Update brightness and timer display
-    if (brightnessValue && entity.attributes.brightness !== undefined) {
-      const brightnessPct = Math.round((entity.attributes.brightness / 255) * 100);
-      const timerText = (this.config.timer_enabled && this.remainingTime > 0) 
-        ? `<span class="timer-text"> • ${this.formatTime(this.remainingTime)}</span>` 
-        : '';
-      brightnessValue.innerHTML = `${brightnessPct}%${timerText}`;
-    }
+      // Update motion icon state
+      if (motionIcon && this.config.motion_enabled && this.config.motion_sensor) {
+        const motionEntity = this._hass.states[this.config.motion_sensor];
+        const motionActive = motionEntity && 
+          (motionEntity.state === 'on' || motionEntity.state === 'detected');
+        if (motionActive) {
+          motionIcon.classList.add('active');
+        } else {
+          motionIcon.classList.remove('active');
+        }
+      }
 
-    // If entity turns on and timer is enabled, start timer
-    if (entity.state === 'on' && this.config.timer_enabled && this.remainingTime <= 0) {
-      this.startTimer();
-    }
+      // Update brightness slider if it exists
+      const brightnessSlider = this.shadowRoot.querySelector('ha-slider');
+      if (brightnessSlider && entity.attributes && entity.attributes.brightness !== undefined) {
+        const brightness = Number(entity.attributes.brightness) || 0;
+        const brightnessPct = Math.max(0, Math.min(100, Math.round((brightness / 255) * 100)));
+        brightnessSlider.value = brightnessPct;
+      }
 
-    // If entity turns off, reset timer
-    if (entity.state === 'off') {
-      this.remainingTime = 0;
-      this.updateTimerDisplay();
+      // If entity turns on and timer is enabled, start timer
+      if (entity.state === 'on' && this.config.timer_enabled && this.remainingTime <= 0) {
+        this.startTimer();
+      }
+
+      // If entity turns off, reset timer
+      if (entity.state === 'off') {
+        this.remainingTime = 0;
+        this.updateTimerDisplay();
+      }
+    } catch (error) {
+      console.error('Timer Motion Card: Error updating entity state', error);
+      // Don't throw - just log the error
     }
   }
 
@@ -1193,9 +1214,13 @@ class TimerMotionCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    if (this.config) {
-      this.render();
-      this.setupEventListeners();
+    if (this.config && this.config.entity) {
+      try {
+        this.render();
+        this.setupEventListeners();
+      } catch (error) {
+        console.error('Timer Motion Card: Error in set hass', error);
+      }
     }
   }
 
