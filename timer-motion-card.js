@@ -537,8 +537,10 @@ class TimerMotionCard extends HTMLElement {
   }
 
   handleCardClick(e) {
-    // Don't toggle if clicking on settings button, modal, or controls
+    // Don't toggle if clicking on settings button, motion icon, modal, or controls
     if (e && (e.target.closest('.settings-button') || 
+              e.target.closest('.motion-icon-header') ||
+              e.target.closest('.header-actions') ||
               e.target.closest('.settings-modal') ||
               e.target.closest('.mushroom-actions') ||
               e.target.closest('ha-slider'))) {
