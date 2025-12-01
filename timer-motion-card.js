@@ -1158,9 +1158,7 @@ class TimerMotionCard extends HTMLElement {
   }
 }
 
-customElements.define('timer-motion-card', TimerMotionCard);
-
-// Register with Lovelace (Mushroom style - type without 'custom:' prefix)
+// Register with Lovelace BEFORE defining the element (like Mushroom does)
 if (!window.customCards) {
   window.customCards = [];
 }
@@ -1171,6 +1169,9 @@ window.customCards.push({
   preview: true,
   documentationURL: 'https://github.com/ryandidurlabs/timer-motion-card',
 });
+
+// Define the custom element
+customElements.define('timer-motion-card', TimerMotionCard);
 
 // Card editor for Lovelace UI
 class TimerMotionCardEditor extends HTMLElement {
