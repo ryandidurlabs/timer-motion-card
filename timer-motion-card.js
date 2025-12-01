@@ -243,12 +243,27 @@ class TimerMotionCard extends HTMLElement {
   }
 
   updateTimerDisplay() {
-    const timerElement = this.shadowRoot.querySelector('.timer-display');
-    if (timerElement) {
-      const minutes = Math.floor(this.remainingTime / 60);
-      const seconds = this.remainingTime % 60;
-      timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-      timerElement.style.display = this.remainingTime > 0 ? 'block' : 'none';
+    const brightnessValue = this.shadowRoot.querySelector('.brightness-value');
+    if (brightnessValue) {
+      const entity = this._hass?.states?.[this.config.entity];
+      if (entity && entity.attributes.brightness !== undefined) {
+        const brightnessPct = Math.round((entity.attributes.brightness / 255) * 100);
+        const timerText = (this.config.timer_enabled && this.remainingTime > 0) 
+          ? `<span class="timer-text"> • ${this.formatTime(this.remainingTime)}</span>` 
+          : '';
+        brightnessValue.innerHTML = `${brightnessPct}%${timerText}`;
+      } else {
+        // If no brightness, just update timer if it exists
+        const timerSpan = brightnessValue.querySelector('.timer-text');
+        if (timerSpan) {
+          if (this.remainingTime > 0) {
+            timerSpan.textContent = ` • ${this.formatTime(this.remainingTime)}`;
+            timerSpan.style.display = 'inline';
+          } else {
+            timerSpan.style.display = 'none';
+          }
+        }
+      }
     }
   }
 
@@ -260,15 +275,32 @@ class TimerMotionCard extends HTMLElement {
 
     const stateElement = this.shadowRoot.querySelector('.entity-state');
     const iconElement = this.shadowRoot.querySelector('.entity-icon');
+    const motionIcon = this.shadowRoot.querySelector('.motion-icon-header');
+    const brightnessValue = this.shadowRoot.querySelector('.brightness-value');
     
     if (stateElement) {
       stateElement.textContent = entity.state === 'on' ? 'ON' : 'OFF';
-      stateElement.className = `entity-state ${entity.state}`;
     }
 
-    if (iconElement) {
-      const icon = this.config.icon || entity.attributes.icon || 'mdi:lightbulb';
-      iconElement.innerHTML = `<ha-icon icon="${icon}"></ha-icon>`;
+    // Update motion icon state
+    if (motionIcon && this.config.motion_enabled && this.config.motion_sensor) {
+      const motionEntity = this._hass.states[this.config.motion_sensor];
+      const motionActive = motionEntity && 
+        (motionEntity.state === 'on' || motionEntity.state === 'detected');
+      if (motionActive) {
+        motionIcon.classList.add('active');
+      } else {
+        motionIcon.classList.remove('active');
+      }
+    }
+
+    // Update brightness and timer display
+    if (brightnessValue && entity.attributes.brightness !== undefined) {
+      const brightnessPct = Math.round((entity.attributes.brightness / 255) * 100);
+      const timerText = (this.config.timer_enabled && this.remainingTime > 0) 
+        ? `<span class="timer-text"> • ${this.formatTime(this.remainingTime)}</span>` 
+        : '';
+      brightnessValue.innerHTML = `${brightnessPct}%${timerText}`;
     }
 
     // If entity turns on and timer is enabled, start timer
