@@ -260,7 +260,6 @@ class TimerMotionCard extends HTMLElement {
     if (!this.config || !this.config.timer_enabled || !this._hass) return;
     try {
       const duration = this.config.timer_duration || 300;
-      this.remainingTime = duration;
       
       // Clear any existing interval
       if (this.timerInterval) {
@@ -268,15 +267,19 @@ class TimerMotionCard extends HTMLElement {
         this.timerInterval = null;
       }
       
-      // Store expiration time for persistence (works across page reloads)
-      const expirationTime = Date.now() + (duration * 1000);
-      const timerKey = `timer_expiration_${this.config.entity}`;
-      localStorage.setItem(timerKey, expirationTime.toString());
+      // Store timer start time using entity's last_changed as reference
+      // This way it persists across page reloads
+      const entity = this._hass.states[this.config.entity];
+      if (entity && entity.last_changed) {
+        const startTime = new Date(entity.last_changed).getTime();
+        const expirationTime = startTime + (duration * 1000);
+        const timerKey = `timer_expiration_${this.config.entity}`;
+        localStorage.setItem(timerKey, expirationTime.toString());
+        localStorage.setItem(`timer_start_${this.config.entity}`, startTime.toString());
+      }
       
-      // Create a backend automation to turn off the light after duration
-      // This ensures the timer works even if the page is closed
-      this.createBackendTimer(duration);
-      
+      // Calculate initial remaining time
+      this.calculateRemainingTime();
       this.updateTimerDisplay();
       
       // Start the countdown interval for display
@@ -285,6 +288,52 @@ class TimerMotionCard extends HTMLElement {
       }, 1000);
     } catch (error) {
       console.error('Timer Motion Card: Error starting timer', error);
+    }
+  }
+
+  calculateRemainingTime() {
+    if (!this.config || !this.config.entity || !this._hass) {
+      this.remainingTime = 0;
+      return;
+    }
+    
+    try {
+      const timerKey = `timer_expiration_${this.config.entity}`;
+      const expirationTimeStr = localStorage.getItem(timerKey);
+      
+      if (expirationTimeStr) {
+        const expirationTime = parseInt(expirationTimeStr, 10);
+        const now = Date.now();
+        const remaining = Math.max(0, Math.floor((expirationTime - now) / 1000));
+        this.remainingTime = remaining;
+      } else {
+        // No stored timer - check if entity was just turned on
+        const entity = this._hass.states[this.config.entity];
+        if (entity && entity.state === 'on' && entity.last_changed) {
+          const startTime = new Date(entity.last_changed).getTime();
+          const duration = this.config.timer_duration || 300;
+          const expirationTime = startTime + (duration * 1000);
+          const now = Date.now();
+          
+          if (now < expirationTime) {
+            // Timer should be running
+            const remaining = Math.floor((expirationTime - now) / 1000);
+            this.remainingTime = remaining;
+            // Store it for future reference
+            localStorage.setItem(timerKey, expirationTime.toString());
+            localStorage.setItem(`timer_start_${this.config.entity}`, startTime.toString());
+          } else {
+            // Timer should have expired
+            this.remainingTime = 0;
+            localStorage.removeItem(timerKey);
+          }
+        } else {
+          this.remainingTime = 0;
+        }
+      }
+    } catch (error) {
+      console.error('Timer Motion Card: Error calculating remaining time', error);
+      this.remainingTime = 0;
     }
   }
 
@@ -317,29 +366,40 @@ class TimerMotionCard extends HTMLElement {
     if (!this._hass || !this.config || !this.config.entity) return;
     
     try {
-      const timerKey = `timer_expiration_${this.config.entity}`;
-      const expirationTimeStr = localStorage.getItem(timerKey);
+      const entity = this._hass.states[this.config.entity];
+      if (!entity) return;
       
-      if (expirationTimeStr) {
-        const expirationTime = parseInt(expirationTimeStr, 10);
-        const now = Date.now();
+      // If light is off, clear any timer
+      if (entity.state === 'off') {
+        const timerKey = `timer_expiration_${this.config.entity}`;
+        localStorage.removeItem(timerKey);
+        localStorage.removeItem(`timer_start_${this.config.entity}`);
+        this.remainingTime = 0;
+        if (this.timerInterval) {
+          clearInterval(this.timerInterval);
+          this.timerInterval = null;
+        }
+        return;
+      }
+      
+      // If light is on and timer is enabled, check expiration
+      if (entity.state === 'on' && this.config.timer_enabled) {
+        this.calculateRemainingTime();
         
-        if (now >= expirationTime) {
+        if (this.remainingTime <= 0) {
           // Timer has expired - turn off the entity
-          const entity = this._hass.states[this.config.entity];
-          if (entity && entity.state === 'on') {
-            this.callService('turn_off', this.config.entity);
-          }
-          // Clear the stored expiration
+          this.callService('turn_off', this.config.entity);
+          const timerKey = `timer_expiration_${this.config.entity}`;
           localStorage.removeItem(timerKey);
+          localStorage.removeItem(`timer_start_${this.config.entity}`);
           this.remainingTime = 0;
+          if (this.timerInterval) {
+            clearInterval(this.timerInterval);
+            this.timerInterval = null;
+          }
         } else {
-          // Timer hasn't expired yet - calculate remaining time
-          const remaining = Math.floor((expirationTime - now) / 1000);
-          this.remainingTime = remaining;
-          
-          // Restart the display interval if not already running
-          if (!this.timerInterval && this.config.timer_enabled) {
+          // Timer is still running - restart display interval if needed
+          if (!this.timerInterval) {
             this.timerInterval = setInterval(() => {
               this.updateTimer();
             }, 1000);
@@ -352,59 +412,46 @@ class TimerMotionCard extends HTMLElement {
   }
 
   updateTimer() {
-    if (!this.config || !this.config.entity) return;
+    if (!this.config || !this.config.entity || !this._hass) return;
     try {
-      // Check stored expiration time for accuracy
-      const timerKey = `timer_expiration_${this.config.entity}`;
-      const expirationTimeStr = localStorage.getItem(timerKey);
+      const entity = this._hass.states[this.config.entity];
       
-      if (expirationTimeStr) {
-        const expirationTime = parseInt(expirationTimeStr, 10);
-        const now = Date.now();
-        const remaining = Math.floor((expirationTime - now) / 1000);
-        
-        if (remaining <= 0) {
-          // Timer expired - turn off entity
-          if (this._hass && this._hass.states) {
-            const entity = this._hass.states[this.config.entity];
-            if (entity && entity.state === 'on') {
-              this.callService('turn_off', this.config.entity);
-            }
-          }
-          // Clear the stored expiration and interval
-          localStorage.removeItem(timerKey);
-          if (this.timerInterval) {
-            clearInterval(this.timerInterval);
-            this.timerInterval = null;
-          }
-          this.remainingTime = 0;
-          this.updateTimerDisplay();
-        } else {
-          // Update remaining time from stored expiration
-          this.remainingTime = remaining;
-          this.updateTimerDisplay();
-        }
-      } else {
-        // No stored expiration - use local countdown
+      // If light is off, clear timer
+      if (!entity || entity.state === 'off') {
         if (this.remainingTime > 0) {
-          this.remainingTime--;
-          this.updateTimerDisplay();
-        } else if (this.remainingTime === 0 && this.config.timer_enabled) {
-          // Timer expired - turn off entity
-          if (this._hass && this._hass.states) {
-            const entity = this._hass.states[this.config.entity];
-            if (entity && entity.state === 'on') {
-              this.callService('turn_off', this.config.entity);
-            }
-          }
-          // Clear the timer interval
+          this.remainingTime = 0;
+          const timerKey = `timer_expiration_${this.config.entity}`;
+          localStorage.removeItem(timerKey);
+          localStorage.removeItem(`timer_start_${this.config.entity}`);
           if (this.timerInterval) {
             clearInterval(this.timerInterval);
             this.timerInterval = null;
           }
-          this.remainingTime = 0;
           this.updateTimerDisplay();
         }
+        return;
+      }
+      
+      // Recalculate remaining time from stored expiration
+      this.calculateRemainingTime();
+      
+      if (this.remainingTime <= 0) {
+        // Timer expired - turn off entity
+        if (entity.state === 'on') {
+          this.callService('turn_off', this.config.entity);
+        }
+        // Clear the stored expiration and interval
+        const timerKey = `timer_expiration_${this.config.entity}`;
+        localStorage.removeItem(timerKey);
+        localStorage.removeItem(`timer_start_${this.config.entity}`);
+        if (this.timerInterval) {
+          clearInterval(this.timerInterval);
+          this.timerInterval = null;
+        }
+        this.updateTimerDisplay();
+      } else {
+        // Timer still running - update display
+        this.updateTimerDisplay();
       }
     } catch (error) {
       console.error('Timer Motion Card: Error updating timer', error);
@@ -416,9 +463,14 @@ class TimerMotionCard extends HTMLElement {
     
     try {
       const entity = this._hass.states[this.config.entity];
-      const timerText = (this.config.timer_enabled && this.remainingTime > 0) 
-        ? ` • ${this.formatTime(this.remainingTime)}` 
-        : '';
+      
+      // Only show timer if light is on and timer is enabled and has remaining time
+      const showTimer = entity && 
+                       entity.state === 'on' && 
+                       this.config.timer_enabled && 
+                       this.remainingTime > 0;
+      
+      const timerText = showTimer ? ` • ${this.formatTime(this.remainingTime)}` : '';
       
       // Update state display with timer (Mushroom structure)
       const stateElement = this.shadowRoot.querySelector('.mushroom-state-info .secondary');
