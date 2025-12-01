@@ -453,7 +453,7 @@ class TimerMotionCard extends HTMLElement {
       if (!entity) return;
 
       const stateElement = this.shadowRoot.querySelector('.mushroom-state-info .secondary');
-      const motionIcon = this.shadowRoot.querySelector('.motion-icon-corner');
+      const motionIcon = this.shadowRoot.querySelector('.motion-icon-header');
       
       // Update state display if element exists
       if (stateElement) {
@@ -877,25 +877,44 @@ class TimerMotionCard extends HTMLElement {
           border-radius: var(--mush-border-radius, var(--ha-card-border-radius, 12px));
           overflow: hidden;
         }
+        .header-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-shrink: 0;
+        }
         .settings-button {
-          position: absolute;
-          top: 8px;
-          right: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
           cursor: pointer;
-          padding: 8px;
-          color: var(--secondary-text-color, rgba(0,0,0,0.54));
-          transition: color 0.2s;
-          z-index: 10;
-          border-radius: 50%;
-          background: var(--card-background-color, rgba(255,255,255,0.8));
+          padding: 4px;
+          border-radius: 4px;
+          transition: background-color 0.2s;
         }
         .settings-button:hover {
-          color: var(--primary-color, #03a9f4);
-          background: var(--card-background-color, rgba(255,255,255,0.95));
+          background-color: rgba(0, 0, 0, 0.05);
         }
         .settings-button ha-icon {
-          width: 18px;
-          height: 18px;
+          width: 20px;
+          height: 20px;
+          color: var(--secondary-text-color, rgba(0,0,0,0.54));
+        }
+        .motion-icon-header {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 4px;
+        }
+        .motion-icon-header.active {
+          color: var(--mush-success-text-color, #4caf50);
+        }
+        .motion-icon-header:not(.active) {
+          color: var(--secondary-text-color, rgba(0,0,0,0.54));
+        }
+        .motion-icon-header ha-icon {
+          width: 20px;
+          height: 20px;
         }
         /* Mushroom-style state item */
         .mushroom-state-item {
@@ -988,28 +1007,6 @@ class TimerMotionCard extends HTMLElement {
         .timer-text {
           font-weight: 500;
           color: var(--mush-warning-text-color, #ff9800);
-        }
-        .mushroom-card {
-          position: relative;
-        }
-        .motion-icon-corner {
-          position: absolute;
-          bottom: 8px;
-          right: 8px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 10;
-        }
-        .motion-icon-corner.active {
-          color: var(--mush-success-text-color, #4caf50);
-        }
-        .motion-icon-corner:not(.active) {
-          color: var(--secondary-text-color, rgba(0,0,0,0.54));
-        }
-        .motion-icon-corner ha-icon {
-          width: 12px;
-          height: 12px;
         }
         .error {
           color: var(--error-color, #f44336);
@@ -1105,8 +1102,15 @@ class TimerMotionCard extends HTMLElement {
                 <div class="secondary">${name}</div>
               ` : ''}
             </div>
-            <div class="settings-button">
-              <ha-icon icon="mdi:cog"></ha-icon>
+            <div class="header-actions">
+              ${this.config.motion_enabled ? `
+                <div class="motion-icon-header ${motionActive ? 'active' : ''}">
+                  <ha-icon icon="mdi:motion-sensor"></ha-icon>
+                </div>
+              ` : ''}
+              <div class="settings-button">
+                <ha-icon icon="mdi:cog"></ha-icon>
+              </div>
             </div>
           </div>
           ${showControls ? `
@@ -1122,11 +1126,6 @@ class TimerMotionCard extends HTMLElement {
                   ></ha-slider>
                 </div>
               ` : ''}
-            </div>
-          ` : ''}
-          ${this.config.motion_enabled ? `
-            <div class="motion-icon-corner ${motionActive ? 'active' : ''}">
-              <ha-icon icon="mdi:motion-sensor"></ha-icon>
             </div>
           ` : ''}
         </div>
