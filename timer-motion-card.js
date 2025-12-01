@@ -256,48 +256,67 @@ class TimerMotionCard extends HTMLElement {
   }
 
   startTimer() {
-    this.remainingTime = this.config.timer_duration;
-    this.updateTimer();
+    if (!this.config || !this.config.timer_enabled) return;
+    try {
+      this.remainingTime = this.config.timer_duration || 300;
+      this.updateTimer();
+    } catch (error) {
+      console.error('Timer Motion Card: Error starting timer', error);
+    }
   }
 
   updateTimer() {
-    if (this.remainingTime > 0) {
-      this.remainingTime--;
-      this.updateTimerDisplay();
-    } else if (this.remainingTime === 0 && this.config.timer_enabled) {
-      // Timer expired - turn off entity
-      if (this._hass && this._hass.states) {
-        const entity = this._hass.states[this.config.entity];
-        if (entity && entity.state === 'on') {
-          this.callService('turn_off', this.config.entity);
+    if (!this.config || !this.config.entity) return;
+    try {
+      if (this.remainingTime > 0) {
+        this.remainingTime--;
+        this.updateTimerDisplay();
+      } else if (this.remainingTime === 0 && this.config.timer_enabled) {
+        // Timer expired - turn off entity
+        if (this._hass && this._hass.states) {
+          const entity = this._hass.states[this.config.entity];
+          if (entity && entity.state === 'on') {
+            this.callService('turn_off', this.config.entity);
+          }
         }
+        this.remainingTime = -1;
       }
-      this.remainingTime = -1;
+    } catch (error) {
+      console.error('Timer Motion Card: Error updating timer', error);
     }
   }
 
   updateTimerDisplay() {
-    const brightnessValue = this.shadowRoot.querySelector('.brightness-value');
-    if (brightnessValue) {
-      const entity = this._hass?.states?.[this.config.entity];
-      if (entity && entity.attributes.brightness !== undefined) {
-        const brightnessPct = Math.round((entity.attributes.brightness / 255) * 100);
-        const timerText = (this.config.timer_enabled && this.remainingTime > 0) 
-          ? `<span class="timer-text"> • ${this.formatTime(this.remainingTime)}</span>` 
-          : '';
-        brightnessValue.innerHTML = `${brightnessPct}%${timerText}`;
-      } else {
-        // If no brightness, just update timer if it exists
-        const timerSpan = brightnessValue.querySelector('.timer-text');
-        if (timerSpan) {
-          if (this.remainingTime > 0) {
-            timerSpan.textContent = ` • ${this.formatTime(this.remainingTime)}`;
-            timerSpan.style.display = 'inline';
-          } else {
-            timerSpan.style.display = 'none';
-          }
+    if (!this._hass || !this._hass.states || !this.config || !this.config.entity || !this.shadowRoot) return;
+    
+    try {
+      const entity = this._hass.states[this.config.entity];
+      const timerText = (this.config.timer_enabled && this.remainingTime > 0) 
+        ? ` • ${this.formatTime(this.remainingTime)}` 
+        : '';
+      
+      // Update state display with timer (Mushroom structure)
+      const stateElement = this.shadowRoot.querySelector('.mushroom-state-info .secondary');
+      if (stateElement && entity) {
+        const isOn = entity.state === 'on';
+        let brightness = 0;
+        if (entity.attributes && entity.attributes.brightness !== undefined && entity.attributes.brightness !== null) {
+          brightness = Number(entity.attributes.brightness);
+          if (isNaN(brightness)) brightness = 0;
+        }
+        const brightnessPct = brightness > 0 ? Math.max(0, Math.min(100, Math.round((brightness / 255) * 100))) : 0;
+        
+        if (brightness > 0 && this.supportsBrightnessControl(entity)) {
+          stateElement.textContent = `${brightnessPct}%${timerText}`;
+        } else {
+          const stateText = this._hass.formatEntityState ? 
+            this._hass.formatEntityState(entity) : 
+            (isOn ? 'On' : 'Off');
+          stateElement.textContent = `${stateText}${timerText}`;
         }
       }
+    } catch (error) {
+      console.error('Timer Motion Card: Error updating timer display', error);
     }
   }
 
