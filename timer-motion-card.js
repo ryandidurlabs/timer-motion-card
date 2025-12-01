@@ -36,8 +36,8 @@ class TimerMotionCard extends HTMLElement {
       icon: '',
       icon_color: '',
       use_light_color: true,
-      // Control options
-      show_brightness_control: true,
+      // Control options (disabled by default)
+      show_brightness_control: false,
       show_color_temp_control: false,
       show_color_control: false,
       collapsible_controls: false,
@@ -1231,9 +1231,12 @@ class TimerMotionCard extends HTMLElement {
       <ha-card class="${fillContainer ? 'fill-container' : ''}">
         <div class="mushroom-card">
           <div class="mushroom-state-item">
-            ${iconType !== 'none' ? `
+            ${iconType === 'icon' ? `
               <div class="mushroom-shape-icon ${isOn ? 'active' : ''}">
                 <ha-icon icon="${icon}"></ha-icon>
+              </div>
+            ` : iconType === 'entity-picture' && entity && entity.attributes && entity.attributes.entity_picture ? `
+              <div class="mushroom-shape-icon ${isOn ? 'active' : ''}" style="background-image: url('${entity.attributes.entity_picture}'); background-size: cover; background-position: center;">
               </div>
             ` : ''}
             <div class="mushroom-state-info">
