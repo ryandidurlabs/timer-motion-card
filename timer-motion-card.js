@@ -1840,38 +1840,20 @@ class TimerMotionCardEditor extends HTMLElement {
         const configValue = input.getAttribute('config-value');
         if (!configValue) return;
         
-        // Remove any existing listeners to prevent duplicates
-        const newInput = input.cloneNode(true);
-        input.parentNode.replaceChild(newInput, input);
-        const element = newInput;
-        
-        if (element.tagName === 'HA-SWITCH') {
-          element.addEventListener('change', (e) => {
-            e.stopPropagation();
-            const newConfig = { ...this._config };
-            newConfig[configValue] = element.checked;
-            this.configChanged(newConfig);
-          });
-        } else if (element.tagName === 'HA-SELECT') {
-          element.addEventListener('change', (e) => {
-            e.stopPropagation();
-            const newConfig = { ...this._config };
-            newConfig[configValue] = element.value;
-            this.configChanged(newConfig);
-          });
-        } else if (element.tagName === 'HA-ENTITY-PICKER' || element.tagName === 'HA-ICON-PICKER') {
-          element.addEventListener('value-changed', (e) => {
-            e.stopPropagation();
-            const newConfig = { ...this._config };
+        // Create a handler function
+        const handler = (e) => {
+          e.stopPropagation();
+          const newConfig = { ...this._config };
+          
+          if (input.tagName === 'HA-SWITCH') {
+            newConfig[configValue] = input.checked;
+          } else if (input.tagName === 'HA-SELECT') {
+            newConfig[configValue] = input.value;
+          } else if (input.tagName === 'HA-ENTITY-PICKER' || input.tagName === 'HA-ICON-PICKER') {
             newConfig[configValue] = e.detail.value || '';
-            this.configChanged(newConfig);
-          });
-        } else {
-          element.addEventListener('change', (e) => {
-            e.stopPropagation();
-            const newConfig = { ...this._config };
-            const value = element.value;
-            if (element.type === 'number') {
+          } else {
+            const value = input.value;
+            if (input.type === 'number') {
               // For default_brightness, allow empty string to mean null
               if (configValue === 'default_brightness') {
                 newConfig[configValue] = value && value !== '' ? parseInt(value, 10) : null;
@@ -1881,8 +1863,16 @@ class TimerMotionCardEditor extends HTMLElement {
             } else {
               newConfig[configValue] = value;
             }
-            this.configChanged(newConfig);
-          });
+          }
+          
+          this.configChanged(newConfig);
+        };
+        
+        // Add appropriate event listener
+        if (input.tagName === 'HA-ENTITY-PICKER' || input.tagName === 'HA-ICON-PICKER') {
+          input.addEventListener('value-changed', handler);
+        } else {
+          input.addEventListener('change', handler);
         }
       });
     }, 100);
