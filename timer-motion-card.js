@@ -26,6 +26,8 @@ class TimerMotionCard extends HTMLElement {
       icon: '',
       show_icon: true,
       show_name: true,
+      width: '',
+      height: '',
     };
   }
 
@@ -66,6 +68,11 @@ class TimerMotionCard extends HTMLElement {
     try {
       const key = `timer_motion_card_${this.config.entity}`;
       const settingsToSave = {
+        name: this.config.name,
+        entity: this.config.entity,
+        icon: this.config.icon,
+        width: this.config.width,
+        height: this.config.height,
         timer_enabled: this.config.timer_enabled,
         timer_duration: this.config.timer_duration,
         motion_enabled: this.config.motion_enabled,
@@ -93,9 +100,24 @@ class TimerMotionCard extends HTMLElement {
   }
 
   updateSetting(key, value) {
+    const oldEntity = this.config.entity;
     this.config[key] = value;
+    
+    // If entity changed, migrate settings
+    if (key === 'entity' && value !== oldEntity && oldEntity) {
+      const oldSettings = this.loadSettings(oldEntity);
+      const newKey = `timer_motion_card_${value}`;
+      try {
+        localStorage.setItem(newKey, JSON.stringify({...oldSettings, entity: value}));
+        // Update config with migrated settings
+        this.config = {...this.config, ...oldSettings, entity: value};
+      } catch (e) {
+        console.warn('Timer Motion Card: Error migrating settings', e);
+      }
+    }
+    
     this.saveSettings();
-    this.setupEventListeners(); // Re-setup listeners if motion/timer changed
+    this.setupEventListeners(); // Re-setup listeners if motion/timer/entity changed
     this.render();
   }
 
@@ -334,6 +356,10 @@ class TimerMotionCard extends HTMLElement {
       `;
     }
 
+    const cardWidth = this.config.width ? `width: ${this.config.width};` : '';
+    const cardHeight = this.config.height ? `height: ${this.config.height};` : '';
+    const cardBoxSizing = (this.config.width || this.config.height) ? 'box-sizing: border-box;' : '';
+
     this.shadowRoot.innerHTML = `
       <style>
         ha-card {
@@ -341,6 +367,9 @@ class TimerMotionCard extends HTMLElement {
           cursor: pointer;
           transition: background-color 0.2s;
           position: relative;
+          ${cardWidth}
+          ${cardHeight}
+          ${cardBoxSizing}
         }
         ha-card:hover {
           background-color: var(--card-background-color, rgba(0,0,0,0.05));
@@ -485,10 +514,10 @@ class TimerMotionCard extends HTMLElement {
           font-size: 14px;
         }
         .settings-input {
-          width: 100px;
+          min-width: 150px;
         }
         .settings-select {
-          width: 200px;
+          min-width: 200px;
         }
         .settings-description {
           font-size: 12px;
@@ -544,6 +573,7 @@ class TimerMotionCard extends HTMLElement {
     }
 
     const motionSensors = this.getMotionSensors();
+    const availableEntities = this.getAvailableEntities();
     const modal = document.createElement('div');
     modal.className = 'settings-modal';
     modal.innerHTML = `
@@ -552,6 +582,31 @@ class TimerMotionCard extends HTMLElement {
           <div class="settings-title">Settings</div>
           <div class="settings-close">
             <ha-icon icon="mdi:close"></ha-icon>
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-row">
+            <div class="settings-label">Name</div>
+            <ha-textfield class="name-input settings-input" value="${this.config.name || ''}" placeholder="Card name"></ha-textfield>
+          </div>
+          <div class="settings-row">
+            <div class="settings-label">Entity</div>
+            <select class="entity-select settings-select" style="padding: 8px; border-radius: 4px; border: 1px solid var(--divider-color, rgba(0,0,0,0.12)); background: var(--card-background-color, #fff);">
+              <option value="">Select entity...</option>
+              ${availableEntities.map(entity => `<option value="${entity.entity_id}" ${entity.entity_id === this.config.entity ? 'selected' : ''}>${entity.name}</option>`).join('')}
+            </select>
+          </div>
+          <div class="settings-row">
+            <div class="settings-label">Icon</div>
+            <ha-textfield class="icon-input settings-input" value="${this.config.icon || ''}" placeholder="mdi:lightbulb"></ha-textfield>
+          </div>
+          <div class="settings-row">
+            <div class="settings-label">Card Width</div>
+            <ha-textfield class="width-input settings-input" value="${this.config.width || ''}" placeholder="e.g. 200px, 50%"></ha-textfield>
+          </div>
+          <div class="settings-row">
+            <div class="settings-label">Card Height</div>
+            <ha-textfield class="height-input settings-input" value="${this.config.height || ''}" placeholder="e.g. 150px, auto"></ha-textfield>
           </div>
         </div>
         <div class="settings-section">
@@ -634,7 +689,60 @@ class TimerMotionCard extends HTMLElement {
       this.updateSetting('motion_off_delay', parseInt(e.target.value) || 60);
     });
 
+    const nameInput = modal.querySelector('.name-input');
+    if (nameInput) {
+      nameInput.addEventListener('change', (e) => {
+        this.updateSetting('name', e.target.value);
+      });
+    }
+
+    const entitySelect = modal.querySelector('.entity-select');
+    if (entitySelect) {
+      entitySelect.addEventListener('change', (e) => {
+        if (e.target.value) {
+          this.updateSetting('entity', e.target.value);
+        }
+      });
+    }
+
+    const iconInput = modal.querySelector('.icon-input');
+    if (iconInput) {
+      iconInput.addEventListener('change', (e) => {
+        this.updateSetting('icon', e.target.value);
+      });
+    }
+
+    const widthInput = modal.querySelector('.width-input');
+    if (widthInput) {
+      widthInput.addEventListener('change', (e) => {
+        this.updateSetting('width', e.target.value);
+      });
+    }
+
+    const heightInput = modal.querySelector('.height-input');
+    if (heightInput) {
+      heightInput.addEventListener('change', (e) => {
+        this.updateSetting('height', e.target.value);
+      });
+    }
+
     this.shadowRoot.appendChild(modal);
+  }
+
+  getAvailableEntities() {
+    if (!this._hass || !this._hass.states) return [];
+    
+    const entities = [];
+    for (const [entityId, state] of Object.entries(this._hass.states)) {
+      if (entityId.startsWith('light.') || entityId.startsWith('fan.') || 
+          entityId.startsWith('switch.') || entityId.startsWith('input_boolean.')) {
+        entities.push({
+          entity_id: entityId,
+          name: state.attributes.friendly_name || entityId,
+        });
+      }
+    }
+    return entities.sort((a, b) => a.name.localeCompare(b.name));
   }
 
   getMotionSensors() {
