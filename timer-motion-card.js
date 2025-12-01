@@ -112,6 +112,7 @@ class TimerMotionCard extends HTMLElement {
         height: this.config.height,
         timer_enabled: this.config.timer_enabled,
         timer_duration: this.config.timer_duration,
+        default_brightness: this.config.default_brightness,
         motion_enabled: this.config.motion_enabled,
         motion_sensor: this.config.motion_sensor,
         motion_off_delay: this.config.motion_off_delay,
@@ -219,14 +220,13 @@ class TimerMotionCard extends HTMLElement {
       }
     }
 
-    // Update timer display every second
-    if (this.config.timer_enabled) {
-      if (this.timerInterval) {
-        clearInterval(this.timerInterval);
+    // Timer interval is managed by startTimer() method
+    // Only start timer if entity is already on
+    if (this.config.timer_enabled && this._hass && this._hass.states) {
+      const entity = this._hass.states[this.config.entity];
+      if (entity && entity.state === 'on' && this.remainingTime <= 0) {
+        this.startTimer();
       }
-      this.timerInterval = setInterval(() => {
-        this.updateTimer();
-      }, 1000);
     }
   }
 
@@ -1366,6 +1366,18 @@ class TimerMotionCardEditor extends HTMLElement {
             type="number"
             config-value="timer_duration"
           ></paper-input>
+        </div>
+        <div class="config-row">
+          <paper-input
+            label="Default Brightness (%)"
+            value="${this._config.default_brightness !== null && this._config.default_brightness !== undefined ? this._config.default_brightness : ''}"
+            type="number"
+            min="0"
+            max="100"
+            config-value="default_brightness"
+            placeholder="Leave empty for default"
+          ></paper-input>
+          <span style="font-size: 12px; color: var(--secondary-text-color);">0-100, only if brightness control enabled</span>
         </div>
         <div class="config-row">
           <ha-switch
