@@ -1357,13 +1357,134 @@ class TimerMotionCardEditor extends HTMLElement {
         </div>
         <div class="config-row">
           <paper-input
-            label="Icon (optional)"
+            label="Icon"
             value="${this._config.icon || ''}"
             config-value="icon"
             placeholder="mdi:lightbulb"
           ></paper-input>
         </div>
+        
+        <h3>Appearance</h3>
+        <div class="config-row">
+          <label>Layout</label>
+          <paper-dropdown-menu label="Layout" config-value="layout">
+            <paper-listbox slot="dropdown-content" selected="${['default', 'horizontal', 'vertical'].indexOf(this._config.layout || 'default')}">
+              <paper-item>default</paper-item>
+              <paper-item>horizontal</paper-item>
+              <paper-item>vertical</paper-item>
+            </paper-listbox>
+          </paper-dropdown-menu>
+        </div>
+        <div class="config-row">
+          <ha-switch
+            checked="${this._config.fill_container || false}"
+            config-value="fill_container"
+          ></ha-switch>
+          <span>Fill Container</span>
+        </div>
+        <div class="config-row">
+          <label>Primary Info</label>
+          <paper-dropdown-menu label="Primary Info" config-value="primary_info">
+            <paper-listbox slot="dropdown-content" selected="${['name', 'state', 'last-changed', 'last-updated', 'none'].indexOf(this._config.primary_info || 'name')}">
+              <paper-item>name</paper-item>
+              <paper-item>state</paper-item>
+              <paper-item>last-changed</paper-item>
+              <paper-item>last-updated</paper-item>
+              <paper-item>none</paper-item>
+            </paper-listbox>
+          </paper-dropdown-menu>
+        </div>
+        <div class="config-row">
+          <label>Secondary Info</label>
+          <paper-dropdown-menu label="Secondary Info" config-value="secondary_info">
+            <paper-listbox slot="dropdown-content" selected="${['name', 'state', 'last-changed', 'last-updated', 'none'].indexOf(this._config.secondary_info || 'state')}">
+              <paper-item>name</paper-item>
+              <paper-item>state</paper-item>
+              <paper-item>last-changed</paper-item>
+              <paper-item>last-updated</paper-item>
+              <paper-item>none</paper-item>
+            </paper-listbox>
+          </paper-dropdown-menu>
+        </div>
+        <div class="config-row">
+          <label>Icon Type</label>
+          <paper-dropdown-menu label="Icon Type" config-value="icon_type">
+            <paper-listbox slot="dropdown-content" selected="${['icon', 'entity-picture', 'none'].indexOf(this._config.icon_type || 'icon')}">
+              <paper-item>icon</paper-item>
+              <paper-item>entity-picture</paper-item>
+              <paper-item>none</paper-item>
+            </paper-listbox>
+          </paper-dropdown-menu>
+        </div>
+        
+        <h3>Controls</h3>
+        <div class="config-row">
+          <ha-switch
+            checked="${this._config.show_brightness_control !== false}"
+            config-value="show_brightness_control"
+          ></ha-switch>
+          <span>Show Brightness Control</span>
+        </div>
+        <div class="config-row">
+          <ha-switch
+            checked="${this._config.show_color_temp_control || false}"
+            config-value="show_color_temp_control"
+          ></ha-switch>
+          <span>Show Color Temperature Control</span>
+        </div>
+        <div class="config-row">
+          <ha-switch
+            checked="${this._config.show_color_control || false}"
+            config-value="show_color_control"
+          ></ha-switch>
+          <span>Show Color Control</span>
+        </div>
+        <div class="config-row">
+          <ha-switch
+            checked="${this._config.collapsible_controls || false}"
+            config-value="collapsible_controls"
+          ></ha-switch>
+          <span>Collapsible Controls</span>
+        </div>
+        <div class="config-row">
+          <ha-switch
+            checked="${this._config.use_light_color !== false}"
+            config-value="use_light_color"
+          ></ha-switch>
+          <span>Use Light Color</span>
+        </div>
       </div>
+      <style>
+        .card-config {
+          padding: 16px;
+        }
+        .card-config h3 {
+          margin: 16px 0 8px 0;
+          font-size: 16px;
+          font-weight: 500;
+          color: var(--primary-text-color);
+        }
+        .card-config h3:first-child {
+          margin-top: 0;
+        }
+        .config-row {
+          display: flex;
+          align-items: center;
+          margin-bottom: 12px;
+          gap: 12px;
+        }
+        .config-row label {
+          min-width: 120px;
+          font-size: 14px;
+        }
+        .config-row paper-input,
+        .config-row paper-dropdown-menu {
+          flex: 1;
+        }
+        .config-row ha-switch {
+          margin-right: 8px;
+        }
+      </style>
     `;
 
     // Add event listeners
