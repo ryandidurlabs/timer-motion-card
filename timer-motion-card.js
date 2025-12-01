@@ -6,6 +6,7 @@ class TimerMotionCard extends HTMLElement {
     this.remainingTime = 0;
     this.motionState = null;
     this.motionListener = null;
+    this.settingsOpen = false;
   }
 
   static getConfigElement() {
@@ -33,15 +34,69 @@ class TimerMotionCard extends HTMLElement {
       throw new Error('Entity is required');
     }
 
+    // Load saved settings from localStorage
+    const savedSettings = this.loadSettings(config.entity);
+    
     this.config = {
       ...TimerMotionCard.getStubConfig(),
       ...config,
+      ...savedSettings, // Override with saved settings
     };
 
     if (this._hass) {
       this.render();
       this.setupEventListeners();
     }
+  }
+
+  loadSettings(entityId) {
+    try {
+      const key = `timer_motion_card_${entityId}`;
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.warn('Timer Motion Card: Error loading settings', e);
+    }
+    return {};
+  }
+
+  saveSettings() {
+    try {
+      const key = `timer_motion_card_${this.config.entity}`;
+      const settingsToSave = {
+        timer_enabled: this.config.timer_enabled,
+        timer_duration: this.config.timer_duration,
+        motion_enabled: this.config.motion_enabled,
+        motion_sensor: this.config.motion_sensor,
+        motion_off_delay: this.config.motion_off_delay,
+      };
+      localStorage.setItem(key, JSON.stringify(settingsToSave));
+    } catch (e) {
+      console.warn('Timer Motion Card: Error saving settings', e);
+    }
+  }
+
+  openSettings(e) {
+    e.stopPropagation(); // Prevent card toggle
+    this.settingsOpen = true;
+    this.render();
+  }
+
+  closeSettings() {
+    this.settingsOpen = false;
+    const modal = this.shadowRoot.querySelector('.settings-modal');
+    if (modal) {
+      modal.remove();
+    }
+  }
+
+  updateSetting(key, value) {
+    this.config[key] = value;
+    this.saveSettings();
+    this.setupEventListeners(); // Re-setup listeners if motion/timer changed
+    this.render();
   }
 
   connectedCallback() {
@@ -210,7 +265,12 @@ class TimerMotionCard extends HTMLElement {
     this._hass.callService(domain, service, { entity_id: entityId });
   }
 
-  toggleEntity() {
+  toggleEntity(e) {
+    // Don't toggle if clicking on settings button or modal
+    if (e && (e.target.closest('.settings-button') || e.target.closest('.settings-modal'))) {
+      return;
+    }
+    
     if (!this._hass || !this._hass.states) return;
     
     const entity = this._hass.states[this.config.entity];
@@ -280,6 +340,7 @@ class TimerMotionCard extends HTMLElement {
           padding: 16px;
           cursor: pointer;
           transition: background-color 0.2s;
+          position: relative;
         }
         ha-card:hover {
           background-color: var(--card-background-color, rgba(0,0,0,0.05));
@@ -289,10 +350,30 @@ class TimerMotionCard extends HTMLElement {
           flex-direction: column;
           gap: 12px;
         }
+        .card-header {
+          position: relative;
+        }
         .entity-header {
           display: flex;
           align-items: center;
           gap: 16px;
+        }
+        .settings-button {
+          position: absolute;
+          top: 0;
+          right: 0;
+          cursor: pointer;
+          padding: 4px;
+          color: var(--secondary-text-color, rgba(0,0,0,0.54));
+          transition: color 0.2s;
+          z-index: 10;
+        }
+        .settings-button:hover {
+          color: var(--primary-color, #03a9f4);
+        }
+        .settings-button ha-icon {
+          width: 20px;
+          height: 20px;
         }
         .entity-icon {
           font-size: 32px;
@@ -351,14 +432,82 @@ class TimerMotionCard extends HTMLElement {
           width: 24px;
           height: 24px;
         }
+        .settings-modal {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: rgba(0, 0, 0, 0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+        }
+        .settings-dialog {
+          background-color: var(--card-background-color, #fff);
+          border-radius: 8px;
+          padding: 24px;
+          max-width: 500px;
+          width: 90%;
+          max-height: 90vh;
+          overflow-y: auto;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .settings-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 20px;
+        }
+        .settings-title {
+          font-size: 20px;
+          font-weight: 500;
+        }
+        .settings-close {
+          cursor: pointer;
+          color: var(--secondary-text-color, rgba(0,0,0,0.54));
+        }
+        .settings-close:hover {
+          color: var(--primary-color, #03a9f4);
+        }
+        .settings-section {
+          margin-bottom: 20px;
+        }
+        .settings-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 16px;
+        }
+        .settings-label {
+          flex: 1;
+          font-size: 14px;
+        }
+        .settings-input {
+          width: 100px;
+        }
+        .settings-select {
+          width: 200px;
+        }
+        .settings-description {
+          font-size: 12px;
+          color: var(--secondary-text-color, rgba(0,0,0,0.54));
+          margin-top: 4px;
+        }
       </style>
       <ha-card>
         <div class="card-content">
-          <div class="entity-header">
-            ${this.config.show_icon ? `<div class="entity-icon"><ha-icon icon="${icon}"></ha-icon></div>` : ''}
-            <div class="entity-info">
-              ${this.config.show_name ? `<div class="entity-name">${name}</div>` : ''}
-              <div class="entity-state ${isOn ? 'on' : 'off'}">${isOn ? 'ON' : 'OFF'}</div>
+          <div class="card-header">
+            <div class="entity-header">
+              ${this.config.show_icon ? `<div class="entity-icon"><ha-icon icon="${icon}"></ha-icon></div>` : ''}
+              <div class="entity-info">
+                ${this.config.show_name ? `<div class="entity-name">${name}</div>` : ''}
+                <div class="entity-state ${isOn ? 'on' : 'off'}">${isOn ? 'ON' : 'OFF'}</div>
+              </div>
+            </div>
+            <div class="settings-button">
+              <ha-icon icon="mdi:cog"></ha-icon>
             </div>
           </div>
           ${timerHtml}
@@ -367,13 +516,143 @@ class TimerMotionCard extends HTMLElement {
       </ha-card>
     `;
 
-    // Add click handler
+    // Add click handler for card
     const card = this.shadowRoot.querySelector('ha-card');
     if (card) {
-      card.addEventListener('click', () => this.toggleEntity());
+      card.addEventListener('click', (e) => this.toggleEntity(e));
+    }
+
+    // Add settings button handler
+    const settingsBtn = this.shadowRoot.querySelector('.settings-button');
+    if (settingsBtn) {
+      settingsBtn.addEventListener('click', (e) => this.openSettings(e));
+    }
+
+    // Render settings modal if open
+    if (this.settingsOpen) {
+      this.renderSettingsModal();
     }
 
     this.updateEntityState();
+  }
+
+  renderSettingsModal() {
+    // Remove existing modal if any
+    const existingModal = this.shadowRoot.querySelector('.settings-modal');
+    if (existingModal) {
+      existingModal.remove();
+    }
+
+    const motionSensors = this.getMotionSensors();
+    const modal = document.createElement('div');
+    modal.className = 'settings-modal';
+    modal.innerHTML = `
+      <div class="settings-dialog">
+        <div class="settings-header">
+          <div class="settings-title">Settings</div>
+          <div class="settings-close">
+            <ha-icon icon="mdi:close"></ha-icon>
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">Enable Timer</div>
+              <div class="settings-description">Automatically turn off after duration</div>
+            </div>
+            <ha-switch class="timer-switch" ${this.config.timer_enabled ? 'checked' : ''}></ha-switch>
+          </div>
+          <div class="timer-duration-row" style="display: ${this.config.timer_enabled ? 'flex' : 'none'}">
+            <div class="settings-label">Timer Duration (seconds)</div>
+            <ha-textfield class="timer-duration-input settings-input" type="number" value="${this.config.timer_duration}"></ha-textfield>
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">Enable Motion Sensor</div>
+              <div class="settings-description">Automatically control based on motion</div>
+            </div>
+            <ha-switch class="motion-switch" ${this.config.motion_enabled ? 'checked' : ''}></ha-switch>
+          </div>
+          <div class="motion-settings-row" style="display: ${this.config.motion_enabled ? 'flex' : 'none'}; flex-direction: column; gap: 12px;">
+            <div class="settings-row">
+              <div class="settings-label">Motion Sensor</div>
+              <select class="motion-sensor-select settings-select" style="padding: 8px; border-radius: 4px; border: 1px solid var(--divider-color, rgba(0,0,0,0.12)); background: var(--card-background-color, #fff);">
+                <option value="">Select sensor...</option>
+                ${motionSensors.map(sensor => `<option value="${sensor.entity_id}" ${sensor.entity_id === this.config.motion_sensor ? 'selected' : ''}>${sensor.name}</option>`).join('')}
+              </select>
+            </div>
+            <div class="settings-row">
+              <div class="settings-label">Motion Off Delay (seconds)</div>
+              <ha-textfield class="motion-delay-input settings-input" type="number" value="${this.config.motion_off_delay}"></ha-textfield>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Add event listeners
+    const closeBtn = modal.querySelector('.settings-close');
+    closeBtn.addEventListener('click', () => this.closeSettings());
+
+    const backdrop = modal;
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) {
+        this.closeSettings();
+      }
+    });
+
+    const timerSwitch = modal.querySelector('.timer-switch');
+    timerSwitch.addEventListener('change', (e) => {
+      this.updateSetting('timer_enabled', e.target.checked);
+      const durationRow = modal.querySelector('.timer-duration-row');
+      durationRow.style.display = e.target.checked ? 'flex' : 'none';
+    });
+
+    const timerDurationInput = modal.querySelector('.timer-duration-input');
+    timerDurationInput.addEventListener('change', (e) => {
+      this.updateSetting('timer_duration', parseInt(e.target.value) || 300);
+    });
+
+    const motionSwitch = modal.querySelector('.motion-switch');
+    motionSwitch.addEventListener('change', (e) => {
+      this.updateSetting('motion_enabled', e.target.checked);
+      const motionRow = modal.querySelector('.motion-settings-row');
+      motionRow.style.display = e.target.checked ? 'flex' : 'none';
+    });
+
+    const motionSensorSelect = modal.querySelector('.motion-sensor-select');
+    if (motionSensorSelect) {
+      motionSensorSelect.addEventListener('change', (e) => {
+        this.updateSetting('motion_sensor', e.target.value);
+      });
+    }
+
+    const motionDelayInput = modal.querySelector('.motion-delay-input');
+    motionDelayInput.addEventListener('change', (e) => {
+      this.updateSetting('motion_off_delay', parseInt(e.target.value) || 60);
+    });
+
+    this.shadowRoot.appendChild(modal);
+  }
+
+  getMotionSensors() {
+    if (!this._hass || !this._hass.states) return [];
+    
+    const sensors = [];
+    for (const [entityId, state] of Object.entries(this._hass.states)) {
+      if (entityId.startsWith('binary_sensor.') && 
+          (state.attributes.device_class === 'motion' || 
+           state.attributes.device_class === 'occupancy' ||
+           entityId.toLowerCase().includes('motion'))) {
+        sensors.push({
+          entity_id: entityId,
+          name: state.attributes.friendly_name || entityId,
+        });
+      }
+    }
+    return sensors.sort((a, b) => a.name.localeCompare(b.name));
   }
 
   set hass(hass) {
