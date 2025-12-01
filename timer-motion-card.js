@@ -13,7 +13,11 @@ class TimerMotionCard extends HTMLElement {
     return document.createElement('timer-motion-card-editor');
   }
 
-  static getStubConfig() {
+  static getStubConfig(hass) {
+    const entities = hass ? Object.keys(hass.states) : [];
+    const lights = entities.filter((e) => 
+      ['light', 'fan', 'switch', 'input_boolean'].includes(e.split('.')[0])
+    );
     return {
       type: 'custom:timer-motion-card',
       entity: '',
@@ -92,9 +96,19 @@ class TimerMotionCard extends HTMLElement {
         name: this.config.name,
         entity: this.config.entity,
         icon: this.config.icon,
+        icon_color: this.config.icon_color,
+        use_light_color: this.config.use_light_color,
+        layout: this.config.layout,
+        fill_container: this.config.fill_container,
+        primary_info: this.config.primary_info,
+        secondary_info: this.config.secondary_info,
+        icon_type: this.config.icon_type,
+        show_brightness_control: this.config.show_brightness_control,
+        show_color_temp_control: this.config.show_color_temp_control,
+        show_color_control: this.config.show_color_control,
+        collapsible_controls: this.config.collapsible_controls,
         width: this.config.width,
         height: this.config.height,
-        show_brightness: this.config.show_brightness,
         timer_enabled: this.config.timer_enabled,
         timer_duration: this.config.timer_duration,
         motion_enabled: this.config.motion_enabled,
@@ -1140,6 +1154,17 @@ class TimerMotionCard extends HTMLElement {
 }
 
 customElements.define('timer-motion-card', TimerMotionCard);
+
+// Register with Lovelace
+if (window.customCards) {
+  window.customCards.push({
+    type: 'timer-motion-card',
+    name: 'Timer Motion Card',
+    description: 'A card with timer and motion sensor functionality styled like Mushroom cards',
+    preview: true,
+    documentationURL: 'https://github.com/ryandidurlabs/timer-motion-card',
+  });
+}
 
 // Card editor for Lovelace UI
 class TimerMotionCardEditor extends HTMLElement {
