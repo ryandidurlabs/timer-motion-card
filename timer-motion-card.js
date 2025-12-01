@@ -551,13 +551,33 @@ class TimerMotionCard extends HTMLElement {
       }
 
       // If entity turns on and timer is enabled, start timer
-      if (entity.state === 'on' && this.config.timer_enabled && this.remainingTime <= 0) {
-        this.startTimer();
+      if (entity.state === 'on' && this.config.timer_enabled) {
+        // Check if timer should be running based on last_changed
+        this.calculateRemainingTime();
+        if (this.remainingTime <= 0) {
+          // No active timer or timer expired - start new one
+          this.startTimer();
+        } else {
+          // Timer already running - just update display
+          this.updateTimerDisplay();
+          if (!this.timerInterval) {
+            this.timerInterval = setInterval(() => {
+              this.updateTimer();
+            }, 1000);
+          }
+        }
       }
 
       // If entity turns off, reset timer
       if (entity.state === 'off') {
+        const timerKey = `timer_expiration_${this.config.entity}`;
+        localStorage.removeItem(timerKey);
+        localStorage.removeItem(`timer_start_${this.config.entity}`);
         this.remainingTime = 0;
+        if (this.timerInterval) {
+          clearInterval(this.timerInterval);
+          this.timerInterval = null;
+        }
         this.updateTimerDisplay();
       }
     } catch (error) {
