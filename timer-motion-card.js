@@ -537,8 +537,9 @@ class TimerMotionCard extends HTMLElement {
   }
 
   handleCardClick(e) {
-    // Don't toggle if clicking on settings button, motion icon, modal, or controls
+    // Don't toggle if clicking on settings button, timer icon, motion icon, modal, or controls
     if (e && (e.target.closest('.settings-button') || 
+              e.target.closest('.timer-icon-header') ||
               e.target.closest('.motion-icon-header') ||
               e.target.closest('.header-actions') ||
               e.target.closest('.settings-modal') ||
@@ -918,6 +919,17 @@ class TimerMotionCard extends HTMLElement {
           width: 20px;
           height: 20px;
         }
+        .timer-icon-header {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 4px;
+          color: var(--secondary-text-color, rgba(0,0,0,0.54));
+        }
+        .timer-icon-header ha-icon {
+          width: 20px;
+          height: 20px;
+        }
         /* Mushroom-style state item */
         .mushroom-state-item {
           display: flex;
@@ -1105,6 +1117,11 @@ class TimerMotionCard extends HTMLElement {
               ` : ''}
             </div>
             <div class="header-actions">
+              ${this.config.timer_enabled ? `
+                <div class="timer-icon-header">
+                  <ha-icon icon="mdi:timer-outline"></ha-icon>
+                </div>
+              ` : ''}
               ${this.config.motion_enabled ? `
                 <div class="motion-icon-header ${motionActive ? 'active' : ''}">
                   <ha-icon icon="mdi:motion-sensor"></ha-icon>
