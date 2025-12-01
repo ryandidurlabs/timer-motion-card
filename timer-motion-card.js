@@ -1610,7 +1610,7 @@ class TimerMotionCardEditor extends HTMLElement {
           <ha-entity-picker
             .hass="${this._hass}"
             .value="${this._config.entity || ''}"
-            .configValue="${'entity'}"
+            config-value="entity"
             .includeDomains="${['light', 'fan', 'switch']}"
             allow-custom-entity
           ></ha-entity-picker>
@@ -1665,7 +1665,7 @@ class TimerMotionCardEditor extends HTMLElement {
           <ha-entity-picker
             .hass="${this._hass}"
             .value="${this._config.motion_sensor || ''}"
-            .configValue="${'motion_sensor'}"
+            config-value="motion_sensor"
             .includeDomains="${['binary_sensor']}"
             allow-custom-entity
           ></ha-entity-picker>
@@ -1684,7 +1684,7 @@ class TimerMotionCardEditor extends HTMLElement {
           <ha-icon-picker
             .hass="${this._hass}"
             .value="${this._config.icon || ''}"
-            .configValue="${'icon'}"
+            config-value="icon"
             placeholder="mdi:lightbulb"
           ></ha-icon-picker>
         </div>
@@ -1803,12 +1803,16 @@ class TimerMotionCardEditor extends HTMLElement {
         .config-row {
           display: flex;
           align-items: center;
-          margin-bottom: 12px;
-          gap: 12px;
+          margin-bottom: 16px;
+          gap: 16px;
+        }
+        .config-row:last-child {
+          margin-bottom: 0;
         }
         .config-row label {
-          min-width: 120px;
+          min-width: 160px;
           font-size: 14px;
+          color: var(--primary-text-color);
         }
         .config-row ha-textfield,
         .config-row ha-select,
@@ -1817,7 +1821,13 @@ class TimerMotionCardEditor extends HTMLElement {
           flex: 1;
         }
         .config-row ha-switch {
-          margin-right: 8px;
+          margin-right: 16px;
+          flex-shrink: 0;
+        }
+        .config-row span {
+          flex: 1;
+          font-size: 14px;
+          color: var(--primary-text-color);
         }
       </style>
     `;
@@ -1826,32 +1836,41 @@ class TimerMotionCardEditor extends HTMLElement {
     setTimeout(() => {
       const inputs = this.querySelectorAll('ha-textfield, ha-switch, ha-select, ha-entity-picker, ha-icon-picker');
       inputs.forEach((input) => {
-        const configValue = input.getAttribute('config-value') || (input.configValue ? input.configValue : null);
+        const configValue = input.getAttribute('config-value');
         if (!configValue) return;
         
-        if (input.tagName === 'HA-SWITCH') {
-          input.addEventListener('change', (e) => {
+        // Remove any existing listeners to prevent duplicates
+        const newInput = input.cloneNode(true);
+        input.parentNode.replaceChild(newInput, input);
+        const element = newInput;
+        
+        if (element.tagName === 'HA-SWITCH') {
+          element.addEventListener('change', (e) => {
+            e.stopPropagation();
             const newConfig = { ...this._config };
-            newConfig[configValue] = input.checked;
+            newConfig[configValue] = element.checked;
             this.configChanged(newConfig);
           });
-        } else if (input.tagName === 'HA-SELECT') {
-          input.addEventListener('change', (e) => {
+        } else if (element.tagName === 'HA-SELECT') {
+          element.addEventListener('change', (e) => {
+            e.stopPropagation();
             const newConfig = { ...this._config };
-            newConfig[configValue] = input.value;
+            newConfig[configValue] = element.value;
             this.configChanged(newConfig);
           });
-        } else if (input.tagName === 'HA-ENTITY-PICKER' || input.tagName === 'HA-ICON-PICKER') {
-          input.addEventListener('value-changed', (e) => {
+        } else if (element.tagName === 'HA-ENTITY-PICKER' || element.tagName === 'HA-ICON-PICKER') {
+          element.addEventListener('value-changed', (e) => {
+            e.stopPropagation();
             const newConfig = { ...this._config };
             newConfig[configValue] = e.detail.value || '';
             this.configChanged(newConfig);
           });
         } else {
-          input.addEventListener('change', (e) => {
+          element.addEventListener('change', (e) => {
+            e.stopPropagation();
             const newConfig = { ...this._config };
-            const value = input.value;
-            if (input.type === 'number') {
+            const value = element.value;
+            if (element.type === 'number') {
               // For default_brightness, allow empty string to mean null
               if (configValue === 'default_brightness') {
                 newConfig[configValue] = value && value !== '' ? parseInt(value, 10) : null;
@@ -1865,7 +1884,7 @@ class TimerMotionCardEditor extends HTMLElement {
           });
         }
       });
-    }, 0);
+    }, 100);
   }
 }
 
