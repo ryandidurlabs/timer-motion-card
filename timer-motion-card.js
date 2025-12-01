@@ -516,9 +516,12 @@ class TimerMotionCard extends HTMLElement {
           if (isNaN(brightness)) brightness = 0;
         }
         const brightnessPct = brightness > 0 ? Math.max(0, Math.min(100, Math.round((brightness / 255) * 100))) : 0;
-        const timerText = (this.config.timer_enabled && this.remainingTime > 0) 
-          ? ` • ${this.formatTime(this.remainingTime)}` 
-          : '';
+        
+        // Only show timer if light is on and timer is enabled and has remaining time
+        const showTimer = isOn && 
+                         this.config.timer_enabled && 
+                         this.remainingTime > 0;
+        const timerText = showTimer ? ` • ${this.formatTime(this.remainingTime)}` : '';
         
         if (brightness > 0 && this.supportsBrightnessControl(entity)) {
           stateElement.textContent = `${brightnessPct}%${timerText}`;
