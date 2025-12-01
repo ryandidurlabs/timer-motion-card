@@ -28,6 +28,7 @@ class TimerMotionCard extends HTMLElement {
       show_name: true,
       width: '',
       height: '',
+      show_brightness: true,
     };
   }
 
@@ -73,6 +74,7 @@ class TimerMotionCard extends HTMLElement {
         icon: this.config.icon,
         width: this.config.width,
         height: this.config.height,
+        show_brightness: this.config.show_brightness,
         timer_enabled: this.config.timer_enabled,
         timer_duration: this.config.timer_duration,
         motion_enabled: this.config.motion_enabled,
@@ -288,8 +290,11 @@ class TimerMotionCard extends HTMLElement {
   }
 
   toggleEntity(e) {
-    // Don't toggle if clicking on settings button or modal
-    if (e && (e.target.closest('.settings-button') || e.target.closest('.settings-modal'))) {
+    // Don't toggle if clicking on settings button, modal, or brightness slider
+    if (e && (e.target.closest('.settings-button') || 
+              e.target.closest('.settings-modal') ||
+              e.target.closest('.brightness-container') ||
+              e.target.closest('ha-slider'))) {
       return;
     }
     
@@ -306,6 +311,16 @@ class TimerMotionCard extends HTMLElement {
         this.startTimer();
       }
     }
+  }
+
+  setBrightness(value) {
+    if (!this._hass) return;
+    const brightness = Math.round((parseInt(value) / 100) * 255);
+    const domain = this.config.entity.split('.')[0];
+    this._hass.callService(domain, 'turn_on', {
+      entity_id: this.config.entity,
+      brightness: brightness,
+    });
   }
 
   formatTime(seconds) {
@@ -330,31 +345,54 @@ class TimerMotionCard extends HTMLElement {
     const isOn = entity.state === 'on';
     const icon = this.config.icon || entity.attributes.icon || 'mdi:lightbulb';
     const name = this.config.name || entity.attributes.friendly_name || entity.entity_id;
-
-    // Calculate timer display
-    let timerHtml = '';
-    if (this.config.timer_enabled && this.remainingTime > 0) {
-      timerHtml = `
-        <div class="timer-display">
-          <ha-icon icon="mdi:timer"></ha-icon>
-          <span>${this.formatTime(this.remainingTime)}</span>
-        </div>
-      `;
+    const brightness = entity.attributes.brightness || 0;
+    const brightnessPct = Math.round((brightness / 255) * 100);
+    const supportsBrightness = 'brightness' in entity.attributes;
+    const showBrightness = this.config.show_brightness && supportsBrightness && isOn;
+    
+    // Get color for icon (like Mushroom cards)
+    const rgbColor = entity.attributes.rgb_color || null;
+    const colorTemp = entity.attributes.color_temp || null;
+    let iconColor = 'var(--mush-rgb, var(--rgb-disabled-rgb))';
+    if (isOn && rgbColor) {
+      iconColor = `rgb(${rgbColor.join(',')})`;
+    } else if (isOn && colorTemp) {
+      // Approximate color temp to RGB (simplified)
+      const temp = colorTemp;
+      let r, g, b;
+      if (temp <= 66) {
+        r = 255;
+        g = temp;
+        g = 99.4708025861 * Math.log(g) - 161.1195681661;
+        b = temp <= 19 ? 0 : temp - 10;
+        b = 138.5177312231 * Math.log(b) - 305.0447927307;
+      } else {
+        r = temp - 60;
+        r = 329.698727446 * Math.pow(r, -0.1332047592);
+        g = temp - 60;
+        g = 288.1221695283 * Math.pow(g, -0.0755148492);
+        b = 255;
+      }
+      r = Math.max(0, Math.min(255, r));
+      g = Math.max(0, Math.min(255, g));
+      b = Math.max(0, Math.min(255, b));
+      iconColor = `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
+    } else if (isOn) {
+      iconColor = 'var(--mush-rgb, var(--rgb-state-light-on-rgb, 255, 184, 0))';
     }
+
+    // Timer countdown text (for brightness label)
+    const timerText = (this.config.timer_enabled && this.remainingTime > 0) 
+      ? ` • ${this.formatTime(this.remainingTime)}` 
+      : '';
 
     // Motion sensor status
-    let motionHtml = '';
-    if (this.config.motion_enabled && this.config.motion_sensor && this._hass.states) {
-      const motionEntity = this._hass.states[this.config.motion_sensor];
-      const motionActive = motionEntity && 
-        (motionEntity.state === 'on' || motionEntity.state === 'detected');
-      motionHtml = `
-        <div class="motion-status ${motionActive ? 'active' : ''}">
-          <ha-icon icon="mdi:motion-sensor"></ha-icon>
-          <span>${motionActive ? 'Motion' : 'No Motion'}</span>
-        </div>
-      `;
-    }
+    const motionActive = this.config.motion_enabled && this.config.motion_sensor && this._hass.states
+      ? (() => {
+          const motionEntity = this._hass.states[this.config.motion_sensor];
+          return motionEntity && (motionEntity.state === 'on' || motionEntity.state === 'detected');
+        })()
+      : false;
 
     const cardWidth = this.config.width ? `width: ${this.config.width};` : '';
     const cardHeight = this.config.height ? `height: ${this.config.height};` : '';
@@ -363,95 +401,130 @@ class TimerMotionCard extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         ha-card {
-          padding: 16px;
+          padding: 0;
           cursor: pointer;
-          transition: background-color 0.2s;
+          transition: all 0.2s;
           position: relative;
+          border-radius: var(--mush-border-radius, 12px);
+          overflow: hidden;
           ${cardWidth}
           ${cardHeight}
           ${cardBoxSizing}
         }
-        ha-card:hover {
-          background-color: var(--card-background-color, rgba(0,0,0,0.05));
-        }
         .card-content {
           display: flex;
           flex-direction: column;
-          gap: 12px;
+          background: var(--card-background-color, var(--mush-card-background, #fff));
+          border-radius: var(--mush-border-radius, 12px);
         }
         .card-header {
           position: relative;
-        }
-        .entity-header {
+          padding: 16px;
           display: flex;
           align-items: center;
           gap: 16px;
         }
         .settings-button {
           position: absolute;
-          top: 0;
-          right: 0;
+          top: 8px;
+          right: 8px;
           cursor: pointer;
-          padding: 4px;
+          padding: 8px;
           color: var(--secondary-text-color, rgba(0,0,0,0.54));
           transition: color 0.2s;
           z-index: 10;
+          border-radius: 50%;
+          background: var(--card-background-color, rgba(255,255,255,0.8));
         }
         .settings-button:hover {
           color: var(--primary-color, #03a9f4);
+          background: var(--card-background-color, rgba(255,255,255,0.95));
         }
         .settings-button ha-icon {
-          width: 20px;
-          height: 20px;
+          width: 18px;
+          height: 18px;
+        }
+        .entity-icon-container {
+          position: relative;
+          width: 48px;
+          height: 48px;
+          border-radius: var(--mush-icon-border-radius, 50%);
+          background: ${isOn ? `rgba(${iconColor.replace('rgb(', '').replace(')', '')}, 0.2)` : 'var(--mush-icon-bg, rgba(0,0,0,0.05))'};
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          transition: all 0.2s;
         }
         .entity-icon {
-          font-size: 32px;
-          color: var(--primary-color, #03a9f4);
+          font-size: 24px;
+          color: ${isOn ? iconColor : 'var(--mush-icon-color, rgba(0,0,0,0.54))'};
+          transition: all 0.2s;
         }
         .entity-info {
           flex: 1;
           display: flex;
           flex-direction: column;
           gap: 4px;
+          min-width: 0;
         }
         .entity-name {
-          font-size: 16px;
+          font-size: 14px;
           font-weight: 500;
+          color: var(--primary-text-color, rgba(0,0,0,0.87));
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .entity-state {
-          font-size: 14px;
+          font-size: 12px;
           font-weight: 400;
+          color: ${isOn ? 'var(--mush-state-color, var(--primary-color, #03a9f4))' : 'var(--secondary-text-color, rgba(0,0,0,0.54))'};
           text-transform: uppercase;
+          letter-spacing: 0.5px;
         }
-        .entity-state.on {
-          color: var(--success-color, #4caf50);
+        .brightness-container {
+          padding: 0 16px 16px 16px;
+          display: ${showBrightness ? 'block' : 'none'};
         }
-        .entity-state.off {
-          color: var(--disabled-color, #9e9e9e);
+        .brightness-slider {
+          width: 100%;
+          --paper-slider-active-color: ${iconColor};
+          --paper-slider-secondary-color: rgba(${iconColor.replace('rgb(', '').replace(')', '')}, 0.2);
         }
-        .timer-display {
+        .brightness-label {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 8px;
+          font-size: 12px;
+          color: var(--secondary-text-color, rgba(0,0,0,0.54));
+        }
+        .brightness-value {
+          font-weight: 500;
+          color: var(--primary-text-color, rgba(0,0,0,0.87));
           display: flex;
           align-items: center;
-          gap: 8px;
-          padding: 8px 12px;
-          background-color: var(--warning-color, rgba(255, 152, 0, 0.1));
-          border-radius: 8px;
-          font-size: 18px;
-          font-weight: 600;
-          color: var(--warning-text-color, #ff9800);
+          gap: 4px;
         }
-        .motion-status {
-          display: flex;
+        .timer-text {
+          font-weight: 500;
+          color: var(--mush-warning-text-color, #ff9800);
+        }
+        .motion-icon-header {
+          display: inline-flex;
           align-items: center;
-          gap: 8px;
-          padding: 8px 12px;
-          background-color: var(--info-color, rgba(33, 150, 243, 0.1));
-          border-radius: 8px;
-          font-size: 14px;
+          margin-left: 8px;
         }
-        .motion-status.active {
-          background-color: var(--success-color, rgba(76, 175, 80, 0.1));
-          color: var(--success-text-color, #4caf50);
+        .motion-icon-header.active {
+          color: var(--mush-success-text-color, #4caf50);
+        }
+        .motion-icon-header:not(.active) {
+          color: var(--secondary-text-color, rgba(0,0,0,0.54));
+        }
+        .motion-icon-header ha-icon {
+          width: 16px;
+          height: 16px;
         }
         .error {
           color: var(--error-color, #f44336);
@@ -528,19 +601,37 @@ class TimerMotionCard extends HTMLElement {
       <ha-card>
         <div class="card-content">
           <div class="card-header">
-            <div class="entity-header">
-              ${this.config.show_icon ? `<div class="entity-icon"><ha-icon icon="${icon}"></ha-icon></div>` : ''}
-              <div class="entity-info">
-                ${this.config.show_name ? `<div class="entity-name">${name}</div>` : ''}
-                <div class="entity-state ${isOn ? 'on' : 'off'}">${isOn ? 'ON' : 'OFF'}</div>
+            ${this.config.show_icon ? `
+              <div class="entity-icon-container">
+                <ha-icon class="entity-icon" icon="${icon}"></ha-icon>
               </div>
+            ` : ''}
+            <div class="entity-info">
+              ${this.config.show_name ? `<div class="entity-name">${name}${this.config.motion_enabled ? `<span class="motion-icon-header ${motionActive ? 'active' : ''}"><ha-icon icon="mdi:motion-sensor"></ha-icon></span>` : ''}</div>` : ''}
+              <div class="entity-state">${isOn ? 'ON' : 'OFF'}</div>
             </div>
             <div class="settings-button">
               <ha-icon icon="mdi:cog"></ha-icon>
             </div>
           </div>
-          ${timerHtml}
-          ${motionHtml}
+          ${showBrightness ? `
+            <div class="brightness-container">
+              <div class="brightness-label">
+                <span>Brightness</span>
+                <span class="brightness-value">${brightnessPct}%<span class="timer-text">${timerText}</span></span>
+              </div>
+              <ha-slider
+                class="brightness-slider"
+                min="0"
+                max="100"
+                step="1"
+                value="${brightnessPct}"
+                pin
+                @change="${(e) => this.setBrightness(e.target.value)}"
+                @click="${(e) => e.stopPropagation()}"
+              ></ha-slider>
+            </div>
+          ` : ''}
         </div>
       </ha-card>
     `;
@@ -555,6 +646,16 @@ class TimerMotionCard extends HTMLElement {
     const settingsBtn = this.shadowRoot.querySelector('.settings-button');
     if (settingsBtn) {
       settingsBtn.addEventListener('click', (e) => this.openSettings(e));
+    }
+
+    // Add brightness slider handler
+    const brightnessSlider = this.shadowRoot.querySelector('ha-slider');
+    if (brightnessSlider) {
+      brightnessSlider.addEventListener('change', (e) => {
+        e.stopPropagation();
+        this.setBrightness(e.target.value);
+      });
+      brightnessSlider.addEventListener('click', (e) => e.stopPropagation());
     }
 
     // Render settings modal if open
@@ -607,6 +708,13 @@ class TimerMotionCard extends HTMLElement {
           <div class="settings-row">
             <div class="settings-label">Card Height</div>
             <ha-textfield class="height-input settings-input" value="${this.config.height || ''}" placeholder="e.g. 150px, auto"></ha-textfield>
+          </div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">Show Brightness Slider</div>
+              <div class="settings-description">Display brightness control for dimmable lights</div>
+            </div>
+            <ha-switch class="brightness-switch" ${this.config.show_brightness !== false ? 'checked' : ''}></ha-switch>
           </div>
         </div>
         <div class="settings-section">
@@ -723,6 +831,13 @@ class TimerMotionCard extends HTMLElement {
     if (heightInput) {
       heightInput.addEventListener('change', (e) => {
         this.updateSetting('height', e.target.value);
+      });
+    }
+
+    const brightnessSwitch = modal.querySelector('.brightness-switch');
+    if (brightnessSwitch) {
+      brightnessSwitch.addEventListener('change', (e) => {
+        this.updateSetting('show_brightness', e.target.checked);
       });
     }
 
