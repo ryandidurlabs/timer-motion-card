@@ -453,7 +453,16 @@ class TimerMotionCard extends HTMLElement {
   }
 
   supportsBrightnessControl(entity) {
-    return entity && 'brightness' in entity.attributes;
+    if (!entity || !entity.attributes) return false;
+    // Check if entity supports brightness (has brightness attribute or supports brightness in color modes)
+    if ('brightness' in entity.attributes) return true;
+    if (entity.attributes.supported_color_modes) {
+      return entity.attributes.supported_color_modes.some(mode => 
+        ['brightness', 'brightness_pct'].includes(mode) || 
+        mode.includes('brightness')
+      );
+    }
+    return false;
   }
 
   supportsColorTempControl(entity) {
@@ -521,8 +530,12 @@ class TimerMotionCard extends HTMLElement {
     const isOn = entity.state === 'on';
     const icon = this.config.icon || entity.attributes.icon || 'mdi:lightbulb';
     const name = this.config.name || entity.attributes.friendly_name || entity.entity_id;
-    const brightness = entity.attributes.brightness || 0;
-    const brightnessPct = Math.round((brightness / 255) * 100);
+    
+    // Safely get brightness - handle undefined/null for dimmable lights
+    const brightness = (entity.attributes && entity.attributes.brightness !== undefined) 
+      ? entity.attributes.brightness 
+      : (isOn ? 255 : 0);
+    const brightnessPct = brightness > 0 ? Math.round((brightness / 255) * 100) : 0;
     
     // Mushroom-style color handling
     const lightRgbColor = this.getRGBColor(entity);
@@ -884,7 +897,7 @@ class TimerMotionCard extends HTMLElement {
                     min="0"
                     max="100"
                     step="1"
-                    value="${brightnessPct}"
+                    value="${Math.max(0, Math.min(100, brightnessPct))}"
                     pin
                   ></ha-slider>
                 </div>
