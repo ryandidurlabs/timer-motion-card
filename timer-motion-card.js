@@ -528,19 +528,29 @@ class TimerMotionCard extends HTMLElement {
   }
 
   render() {
-    if (!this._hass || !this._hass.states) return;
-
-    const entity = this._hass.states[this.config.entity];
-    if (!entity) {
-      this.shadowRoot.innerHTML = `
-        <ha-card>
-          <div class="error">Entity not found: ${this.config.entity}</div>
-        </ha-card>
-      `;
+    if (!this._hass || !this._hass.states || !this.config || !this.config.entity) {
+      if (this.shadowRoot && this.config) {
+        this.shadowRoot.innerHTML = `
+          <ha-card>
+            <div class="error">Configuration error: Missing entity or hass object</div>
+          </ha-card>
+        `;
+      }
       return;
     }
 
-    const isOn = entity.state === 'on';
+    try {
+      const entity = this._hass.states[this.config.entity];
+      if (!entity) {
+        this.shadowRoot.innerHTML = `
+          <ha-card>
+            <div class="error">Entity not found: ${this.config.entity}</div>
+          </ha-card>
+        `;
+        return;
+      }
+
+      const isOn = entity.state === 'on';
     const icon = this.config.icon || entity.attributes.icon || 'mdi:lightbulb';
     const name = this.config.name || entity.attributes.friendly_name || entity.entity_id;
     
