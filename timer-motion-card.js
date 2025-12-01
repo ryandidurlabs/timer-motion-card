@@ -20,7 +20,7 @@ class TimerMotionCard extends HTMLElement {
     );
     return {
       type: 'custom:timer-motion-card',
-      entity: '',
+      entity: lights[0] || '',
       // Mushroom appearance options
       layout: 'default', // 'default' | 'horizontal' | 'vertical'
       fill_container: false,
