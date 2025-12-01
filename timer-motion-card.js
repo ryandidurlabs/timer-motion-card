@@ -124,12 +124,19 @@ class TimerMotionCard extends HTMLElement {
   }
 
   openSettings(e) {
-    e.stopPropagation(); // Prevent card toggle
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation(); // Prevent card toggle
+    }
     this.settingsOpen = true;
     this.render();
   }
 
-  closeSettings() {
+  closeSettings(e) {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     this.settingsOpen = false;
     const modal = this.shadowRoot.querySelector('.settings-modal');
     if (modal) {
@@ -1124,7 +1131,10 @@ class TimerMotionCard extends HTMLElement {
           --slider-handle-border-color: var(--card-background-color, #fff);
           --slider-bar-height: 4px;
           --slider-bar-border-radius: 2px;
+          --slider-pin-font-size: 10px;
+          --slider-pin-color: ${sliderColor};
           width: 100%;
+          padding: 8px 0;
         }
         .brightness-label {
           display: flex;
@@ -1408,17 +1418,32 @@ class TimerMotionCard extends HTMLElement {
 
     // Add event listeners
     const closeBtn = modal.querySelector('.settings-close');
-    closeBtn.addEventListener('click', () => this.closeSettings());
+    closeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.closeSettings(e);
+    });
 
     const backdrop = modal;
     backdrop.addEventListener('click', (e) => {
       if (e.target === backdrop) {
-        this.closeSettings();
+        e.preventDefault();
+        e.stopPropagation();
+        this.closeSettings(e);
       }
     });
+    
+    // Prevent clicks inside dialog from closing
+    const dialog = modal.querySelector('.settings-dialog');
+    if (dialog) {
+      dialog.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
+    }
 
     const timerSwitch = modal.querySelector('.timer-switch');
     timerSwitch.addEventListener('change', (e) => {
+      e.stopPropagation();
       this.updateSetting('timer_enabled', e.target.checked);
       const durationRow = modal.querySelector('.timer-duration-row');
       durationRow.style.display = e.target.checked ? 'flex' : 'none';
@@ -1426,11 +1451,13 @@ class TimerMotionCard extends HTMLElement {
 
     const timerDurationInput = modal.querySelector('.timer-duration-input');
     timerDurationInput.addEventListener('change', (e) => {
+      e.stopPropagation();
       this.updateSetting('timer_duration', parseInt(e.target.value) || 300);
     });
 
     const motionSwitch = modal.querySelector('.motion-switch');
     motionSwitch.addEventListener('change', (e) => {
+      e.stopPropagation();
       this.updateSetting('motion_enabled', e.target.checked);
       const motionRow = modal.querySelector('.motion-settings-row');
       motionRow.style.display = e.target.checked ? 'flex' : 'none';
@@ -1439,18 +1466,21 @@ class TimerMotionCard extends HTMLElement {
     const motionSensorSelect = modal.querySelector('.motion-sensor-select');
     if (motionSensorSelect) {
       motionSensorSelect.addEventListener('change', (e) => {
+        e.stopPropagation();
         this.updateSetting('motion_sensor', e.target.value);
       });
     }
 
     const motionDelayInput = modal.querySelector('.motion-delay-input');
     motionDelayInput.addEventListener('change', (e) => {
+      e.stopPropagation();
       this.updateSetting('motion_off_delay', parseInt(e.target.value) || 60);
     });
 
     const nameInput = modal.querySelector('.name-input');
     if (nameInput) {
       nameInput.addEventListener('change', (e) => {
+        e.stopPropagation();
         this.updateSetting('name', e.target.value);
       });
     }
@@ -1458,6 +1488,7 @@ class TimerMotionCard extends HTMLElement {
     const entitySelect = modal.querySelector('.entity-select');
     if (entitySelect) {
       entitySelect.addEventListener('change', (e) => {
+        e.stopPropagation();
         if (e.target.value) {
           this.updateSetting('entity', e.target.value);
         }
@@ -1467,6 +1498,7 @@ class TimerMotionCard extends HTMLElement {
     const iconInput = modal.querySelector('.icon-input');
     if (iconInput) {
       iconInput.addEventListener('change', (e) => {
+        e.stopPropagation();
         this.updateSetting('icon', e.target.value);
       });
     }
@@ -1474,6 +1506,7 @@ class TimerMotionCard extends HTMLElement {
     const widthInput = modal.querySelector('.width-input');
     if (widthInput) {
       widthInput.addEventListener('change', (e) => {
+        e.stopPropagation();
         this.updateSetting('width', e.target.value);
       });
     }
@@ -1481,6 +1514,7 @@ class TimerMotionCard extends HTMLElement {
     const heightInput = modal.querySelector('.height-input');
     if (heightInput) {
       heightInput.addEventListener('change', (e) => {
+        e.stopPropagation();
         this.updateSetting('height', e.target.value);
       });
     }
@@ -1488,6 +1522,7 @@ class TimerMotionCard extends HTMLElement {
     const brightnessSwitch = modal.querySelector('.brightness-switch');
     if (brightnessSwitch) {
       brightnessSwitch.addEventListener('change', (e) => {
+        e.stopPropagation();
         this.updateSetting('show_brightness', e.target.checked);
       });
     }
