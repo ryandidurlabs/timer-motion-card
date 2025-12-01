@@ -558,6 +558,15 @@ class TimerMotionCard extends HTMLElement {
 
       if (entity.state === 'on') {
         this.callService('turn_off', this.config.entity);
+        // Clear timer when manually turned off
+        const timerKey = `timer_expiration_${this.config.entity}`;
+        localStorage.removeItem(timerKey);
+        if (this.timerInterval) {
+          clearInterval(this.timerInterval);
+          this.timerInterval = null;
+        }
+        this.remainingTime = 0;
+        this.updateTimerDisplay();
       } else {
         this.callService('turn_on', this.config.entity);
         if (this.config.timer_enabled) {
