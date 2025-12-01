@@ -17,13 +17,33 @@ class TimerMotionCard extends HTMLElement {
     return {
       type: 'custom:timer-motion-card',
       entity: '',
+      // Mushroom appearance options
+      layout: 'default', // 'default' | 'horizontal' | 'vertical'
+      fill_container: false,
+      primary_info: 'name', // 'name' | 'state' | 'last-changed' | 'last-updated' | 'none'
+      secondary_info: 'state', // 'name' | 'state' | 'last-changed' | 'last-updated' | 'none'
+      icon_type: 'icon', // 'icon' | 'entity-picture' | 'none'
+      // Mushroom action options
+      tap_action: { action: 'toggle' },
+      hold_action: { action: 'more-info' },
+      double_tap_action: null,
+      // Entity options
       name: '',
+      icon: '',
+      icon_color: '',
+      use_light_color: true,
+      // Control options
+      show_brightness_control: true,
+      show_color_temp_control: false,
+      show_color_control: false,
+      collapsible_controls: false,
+      // Timer and motion options
       timer_enabled: false,
-      timer_duration: 300, // 5 minutes default
+      timer_duration: 300,
       motion_enabled: false,
       motion_sensor: '',
-      motion_off_delay: 60, // 1 minute default
-      icon: '',
+      motion_off_delay: 60,
+      // Legacy options (kept for compatibility)
       show_icon: true,
       show_name: true,
       width: '',
@@ -321,15 +341,20 @@ class TimerMotionCard extends HTMLElement {
     this._hass.callService(domain, service, { entity_id: entityId });
   }
 
-  toggleEntity(e) {
-    // Don't toggle if clicking on settings button, modal, or brightness slider
+  handleCardClick(e) {
+    // Don't toggle if clicking on settings button, modal, or controls
     if (e && (e.target.closest('.settings-button') || 
               e.target.closest('.settings-modal') ||
-              e.target.closest('.brightness-container') ||
+              e.target.closest('.mushroom-actions') ||
               e.target.closest('ha-slider'))) {
       return;
     }
     
+    const action = this.config.tap_action || { action: 'toggle' };
+    this.handleAction(action);
+  }
+
+  toggleEntity(e) {
     if (!this._hass || !this._hass.states) return;
     
     const entity = this._hass.states[this.config.entity];
@@ -361,6 +386,111 @@ class TimerMotionCard extends HTMLElement {
     return `${minutes}:${secs.toString().padStart(2, '0')}`;
   }
 
+  // Mushroom-style helper functions
+  getRGBColor(entity) {
+    if (!entity) return null;
+    if (entity.attributes.rgb_color) {
+      return entity.attributes.rgb_color;
+    }
+    if (entity.attributes.color_temp && entity.state === 'on') {
+      // Convert color temp to RGB (simplified)
+      const temp = entity.attributes.color_temp;
+      let r, g, b;
+      if (temp <= 66) {
+        r = 255;
+        g = temp;
+        g = 99.4708025861 * Math.log(g) - 161.1195681661;
+        b = temp <= 19 ? 0 : temp - 10;
+        b = 138.5177312231 * Math.log(b) - 305.0447927307;
+      } else {
+        r = temp - 60;
+        r = 329.698727446 * Math.pow(r, -0.1332047592);
+        g = temp - 60;
+        g = 288.1221695283 * Math.pow(g, -0.0755148492);
+        b = 255;
+      }
+      r = Math.max(0, Math.min(255, r));
+      g = Math.max(0, Math.min(255, g));
+      b = Math.max(0, Math.min(255, b));
+      return [Math.round(r), Math.round(g), Math.round(b)];
+    }
+    return null;
+  }
+
+  isColorLight(rgb) {
+    if (!rgb) return false;
+    // Calculate relative luminance
+    const [r, g, b] = rgb.map(c => {
+      c = c / 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    });
+    const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    return luminance > 0.5;
+  }
+
+  isColorSuperLight(rgb) {
+    if (!rgb) return false;
+    const [r, g, b] = rgb.map(c => {
+      c = c / 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    });
+    const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    return luminance > 0.7;
+  }
+
+  supportsBrightnessControl(entity) {
+    return entity && 'brightness' in entity.attributes;
+  }
+
+  supportsColorTempControl(entity) {
+    return entity && 'color_temp' in entity.attributes && 
+           entity.attributes.supported_color_modes && 
+           entity.attributes.supported_color_modes.includes('color_temp');
+  }
+
+  supportsColorControl(entity) {
+    return entity && entity.attributes.supported_color_modes && 
+           (entity.attributes.supported_color_modes.includes('rgb') ||
+            entity.attributes.supported_color_modes.includes('hs'));
+  }
+
+  handleAction(action) {
+    if (!this._hass || !action) return;
+    
+    switch (action.action) {
+      case 'toggle':
+        this.toggleEntity();
+        break;
+      case 'more-info':
+        this.fireEvent('hass-more-info', { entityId: this.config.entity });
+        break;
+      case 'navigate':
+        if (action.navigation_path) {
+          this.fireEvent('location-changed', { replace: false });
+          history.pushState(null, '', action.navigation_path);
+          this.fireEvent('location-changed', { replace: false });
+        }
+        break;
+      case 'call-service':
+        if (action.service) {
+          const [domain, service] = action.service.split('.');
+          this._hass.callService(domain, service, action.service_data || {});
+        }
+        break;
+      case 'none':
+        break;
+    }
+  }
+
+  fireEvent(type, detail) {
+    const event = new CustomEvent(type, {
+      bubbles: true,
+      composed: true,
+      detail: detail,
+    });
+    this.dispatchEvent(event);
+  }
+
   render() {
     if (!this._hass || !this._hass.states) return;
 
@@ -379,39 +509,60 @@ class TimerMotionCard extends HTMLElement {
     const name = this.config.name || entity.attributes.friendly_name || entity.entity_id;
     const brightness = entity.attributes.brightness || 0;
     const brightnessPct = Math.round((brightness / 255) * 100);
-    const supportsBrightness = 'brightness' in entity.attributes;
-    const showBrightness = this.config.show_brightness && supportsBrightness && isOn;
     
-    // Get color for icon (like Mushroom cards)
-    const rgbColor = entity.attributes.rgb_color || null;
-    const colorTemp = entity.attributes.color_temp || null;
-    let iconColor = 'var(--mush-rgb, var(--rgb-disabled-rgb))';
-    if (isOn && rgbColor) {
-      iconColor = `rgb(${rgbColor.join(',')})`;
-    } else if (isOn && colorTemp) {
-      // Approximate color temp to RGB (simplified)
-      const temp = colorTemp;
-      let r, g, b;
-      if (temp <= 66) {
-        r = 255;
-        g = temp;
-        g = 99.4708025861 * Math.log(g) - 161.1195681661;
-        b = temp <= 19 ? 0 : temp - 10;
-        b = 138.5177312231 * Math.log(b) - 305.0447927307;
+    // Mushroom-style color handling
+    const lightRgbColor = this.getRGBColor(entity);
+    const useLightColor = this.config.use_light_color !== false;
+    const iconColor = this.config.icon_color || '';
+    
+    // Determine icon and shape colors (Mushroom style)
+    let iconStyleColor = '';
+    let shapeColor = '';
+    if (lightRgbColor && useLightColor && isOn) {
+      const color = lightRgbColor.join(',');
+      iconStyleColor = `rgb(${color})`;
+      const isLight = this.isColorLight(lightRgbColor);
+      const isSuperLight = this.isColorSuperLight(lightRgbColor);
+      const darkMode = (this._hass.themes && (this._hass.themes as any).darkMode) || false;
+      if (isLight && !darkMode) {
+        shapeColor = `rgba(var(--rgb-primary-text-color), 0.05)`;
+        if (isSuperLight) {
+          iconStyleColor = `rgba(var(--rgb-primary-text-color), 0.2)`;
+        }
       } else {
-        r = temp - 60;
-        r = 329.698727446 * Math.pow(r, -0.1332047592);
-        g = temp - 60;
-        g = 288.1221695283 * Math.pow(g, -0.0755148492);
-        b = 255;
+        shapeColor = `rgba(${color}, 0.25)`;
       }
-      r = Math.max(0, Math.min(255, r));
-      g = Math.max(0, Math.min(255, g));
-      b = Math.max(0, Math.min(255, b));
-      iconColor = `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
-    } else if (isOn) {
-      iconColor = 'var(--mush-rgb, var(--rgb-state-light-on-rgb, 255, 184, 0))';
+    } else if (iconColor && isOn) {
+      // Use icon_color if provided
+      iconStyleColor = iconColor.startsWith('rgb') ? iconColor : `rgb(${iconColor})`;
+      shapeColor = iconColor.startsWith('rgba') ? iconColor : `rgba(${iconColor.replace('rgb(', '').replace(')', '')}, 0.2)`;
+    } else {
+      // Default Mushroom colors
+      iconStyleColor = isOn 
+        ? 'rgb(var(--rgb-state-light-on-rgb, 255, 184, 0))' 
+        : 'rgb(var(--rgb-disabled-rgb, 158, 158, 158))';
+      shapeColor = isOn 
+        ? 'rgba(var(--rgb-state-light-on-rgb, 255, 184, 0), 0.2)' 
+        : 'rgba(var(--rgb-disabled-rgb, 158, 158, 158), 0.1)';
     }
+    
+    // Control visibility
+    const showBrightnessControl = (this.config.show_brightness_control !== false) && 
+                                  this.supportsBrightnessControl(entity) && 
+                                  (!this.config.collapsible_controls || isOn);
+    const showColorTempControl = this.config.show_color_temp_control && 
+                                 this.supportsColorTempControl(entity);
+    const showColorControl = this.config.show_color_control && 
+                             this.supportsColorControl(entity);
+    
+    // Determine which control to show
+    let activeControl = null;
+    if (showBrightnessControl) activeControl = 'brightness';
+    else if (showColorTempControl) activeControl = 'color_temp';
+    else if (showColorControl) activeControl = 'color';
+    
+    const hasControls = showBrightnessControl || showColorTempControl || showColorControl;
+    const showControls = hasControls && (!this.config.collapsible_controls || isOn);
 
     // Timer countdown text (for brightness label)
     const timerText = (this.config.timer_enabled && this.remainingTime > 0) 
@@ -426,9 +577,45 @@ class TimerMotionCard extends HTMLElement {
         })()
       : false;
 
+    // Format state display (Mushroom style)
+    let stateDisplay = this._hass.formatEntityState ? 
+      this._hass.formatEntityState(entity) : 
+      (isOn ? 'On' : 'Off');
+    if (brightness > 0 && showBrightnessControl) {
+      stateDisplay = `${brightnessPct}%${timerText}`;
+    } else if (timerText) {
+      stateDisplay = `${stateDisplay}${timerText}`;
+    }
+
+    // Layout options
+    const layout = this.config.layout || 'default';
+    const fillContainer = this.config.fill_container || false;
+    const primaryInfo = this.config.primary_info || 'name';
+    const secondaryInfo = this.config.secondary_info || 'state';
+    const iconType = this.config.icon_type || 'icon';
+    
     const cardWidth = this.config.width ? `width: ${this.config.width};` : '';
     const cardHeight = this.config.height ? `height: ${this.config.height};` : '';
     const cardBoxSizing = (this.config.width || this.config.height) ? 'box-sizing: border-box;' : '';
+    
+    // Slider colors (Mushroom style)
+    let sliderColor = iconStyleColor;
+    let sliderBgColor = shapeColor;
+    if (lightRgbColor && useLightColor && isOn) {
+      const color = lightRgbColor.join(',');
+      const isLight = this.isColorLight(lightRgbColor);
+      const darkMode = (this._hass.themes && (this._hass.themes as any).darkMode) || false;
+      if (isLight && !darkMode) {
+        sliderBgColor = 'rgba(var(--rgb-primary-text-color), 0.05)';
+        sliderColor = 'rgba(var(--rgb-primary-text-color), 0.15)';
+      } else {
+        sliderColor = `rgb(${color})`;
+        sliderBgColor = `rgba(${color}, 0.2)`;
+      }
+    } else if (iconColor && isOn) {
+      sliderColor = iconStyleColor;
+      sliderBgColor = shapeColor;
+    }
 
     this.shadowRoot.innerHTML = `
       <style>
@@ -443,18 +630,12 @@ class TimerMotionCard extends HTMLElement {
           ${cardHeight}
           ${cardBoxSizing}
         }
-        .card-content {
+        .mushroom-card {
           display: flex;
           flex-direction: column;
           background: var(--card-background-color, var(--mush-card-background, #fff));
-          border-radius: var(--mush-border-radius, 12px);
-        }
-        .card-header {
-          position: relative;
-          padding: 16px;
-          display: flex;
-          align-items: center;
-          gap: 16px;
+          border-radius: var(--mush-border-radius, var(--ha-card-border-radius, 12px));
+          overflow: hidden;
         }
         .settings-button {
           position: absolute;
@@ -476,53 +657,78 @@ class TimerMotionCard extends HTMLElement {
           width: 18px;
           height: 18px;
         }
-        .entity-icon-container {
+        /* Mushroom-style state item */
+        .mushroom-state-item {
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+          padding: var(--mush-card-padding, 12px);
+          gap: var(--mush-card-gap, 12px);
+          cursor: pointer;
+          min-height: var(--mush-card-min-height, 64px);
+        }
+        .mushroom-shape-icon {
           position: relative;
-          width: 48px;
-          height: 48px;
-          border-radius: var(--mush-icon-border-radius, 50%);
-          background: ${isOn ? `rgba(${iconColor.replace('rgb(', '').replace(')', '')}, 0.2)` : 'var(--mush-icon-bg, rgba(0,0,0,0.05))'};
+          width: var(--mush-icon-size, 40px);
+          height: var(--mush-icon-size, 40px);
+          border-radius: var(--mush-icon-border-radius, var(--ha-card-border-radius, 12px));
           display: flex;
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
           transition: all 0.2s;
+          --icon-color: ${iconStyleColor};
+          --shape-color: ${shapeColor};
+          background: var(--shape-color);
         }
-        .entity-icon {
-          font-size: 24px;
-          color: ${isOn ? iconColor : 'var(--mush-icon-color, rgba(0,0,0,0.54))'};
-          transition: all 0.2s;
+        .mushroom-shape-icon:not(.active) {
+          --icon-color: rgb(var(--rgb-disabled-rgb, 158, 158, 158));
+          --shape-color: rgba(var(--rgb-disabled-rgb, 158, 158, 158), 0.1);
+          background: var(--shape-color);
+          opacity: 0.5;
         }
-        .entity-info {
+        .mushroom-shape-icon ha-icon {
+          color: var(--icon-color);
+          width: var(--mush-icon-width, 24px);
+          height: var(--mush-icon-height, 24px);
+        }
+        .mushroom-state-info {
           flex: 1;
           display: flex;
           flex-direction: column;
-          gap: 4px;
+          gap: var(--mush-info-gap, 4px);
           min-width: 0;
         }
-        .entity-name {
-          font-size: 14px;
-          font-weight: 500;
-          color: var(--primary-text-color, rgba(0,0,0,0.87));
+        .mushroom-state-info .primary {
+          font-size: var(--mush-title-font-size, 14px);
+          font-weight: var(--mush-title-font-weight, 500);
+          color: rgb(var(--rgb-primary-text-color, 0, 0, 0));
+          line-height: var(--mush-title-line-height, 1.2);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
-        .entity-state {
-          font-size: 12px;
-          font-weight: 400;
-          color: ${isOn ? 'var(--mush-state-color, var(--primary-color, #03a9f4))' : 'var(--secondary-text-color, rgba(0,0,0,0.54))'};
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
+        .mushroom-state-info .secondary {
+          font-size: var(--mush-subtitle-font-size, 12px);
+          font-weight: var(--mush-subtitle-font-weight, 400);
+          color: ${isOn ? 'rgb(var(--rgb-state-light-on-rgb, 255, 184, 0))' : 'rgb(var(--rgb-secondary-text-color, 158, 158, 158))'};
+          line-height: var(--mush-subtitle-line-height, 1.2);
         }
-        .brightness-container {
-          padding: 0 16px 16px 16px;
-          display: ${showBrightness ? 'block' : 'none'};
+        .mushroom-actions {
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+          padding: 0 var(--mush-card-padding, 12px) var(--mush-card-padding, 12px);
+          gap: var(--mush-control-gap, 8px);
         }
-        .brightness-slider {
-          width: 100%;
-          --paper-slider-active-color: ${iconColor};
-          --paper-slider-secondary-color: rgba(${iconColor.replace('rgb(', '').replace(')', '')}, 0.2);
+        .mushroom-brightness-control {
+          flex: 1;
+          --slider-color: ${sliderColor};
+          --slider-bg-color: ${sliderBgColor};
+        }
+        .mushroom-brightness-control ha-slider {
+          --paper-slider-active-color: var(--slider-color);
+          --paper-slider-secondary-color: var(--slider-bg-color);
         }
         .brightness-label {
           display: flex;
@@ -630,38 +836,45 @@ class TimerMotionCard extends HTMLElement {
           margin-top: 4px;
         }
       </style>
-      <ha-card>
-        <div class="card-content">
-          <div class="card-header">
-            ${this.config.show_icon ? `
-              <div class="entity-icon-container">
-                <ha-icon class="entity-icon" icon="${icon}"></ha-icon>
+      <ha-card class="${fillContainer ? 'fill-container' : ''}">
+        <div class="mushroom-card">
+          <div class="mushroom-state-item">
+            ${iconType !== 'none' ? `
+              <div class="mushroom-shape-icon ${isOn ? 'active' : ''}">
+                <ha-icon icon="${icon}"></ha-icon>
               </div>
             ` : ''}
-            <div class="entity-info">
-              ${this.config.show_name ? `<div class="entity-name">${name}${this.config.motion_enabled ? `<span class="motion-icon-header ${motionActive ? 'active' : ''}"><ha-icon icon="mdi:motion-sensor"></ha-icon></span>` : ''}</div>` : ''}
-              <div class="entity-state">${isOn ? 'ON' : 'OFF'}</div>
+            <div class="mushroom-state-info">
+              ${primaryInfo === 'name' ? `
+                <div class="primary">${name}${this.config.motion_enabled ? `<span class="motion-icon-header ${motionActive ? 'active' : ''}"><ha-icon icon="mdi:motion-sensor"></ha-icon></span>` : ''}</div>
+              ` : ''}
+              ${primaryInfo === 'state' ? `
+                <div class="primary">${stateDisplay}</div>
+              ` : ''}
+              ${secondaryInfo === 'state' && primaryInfo !== 'state' ? `
+                <div class="secondary">${stateDisplay}</div>
+              ` : ''}
+              ${secondaryInfo === 'name' && primaryInfo !== 'name' ? `
+                <div class="secondary">${name}</div>
+              ` : ''}
             </div>
             <div class="settings-button">
               <ha-icon icon="mdi:cog"></ha-icon>
             </div>
           </div>
-          ${showBrightness ? `
-            <div class="brightness-container">
-              <div class="brightness-label">
-                <span>Brightness</span>
-                <span class="brightness-value">${brightnessPct}%<span class="timer-text">${timerText}</span></span>
-              </div>
-              <ha-slider
-                class="brightness-slider"
-                min="0"
-                max="100"
-                step="1"
-                value="${brightnessPct}"
-                pin
-                @change="${(e) => this.setBrightness(e.target.value)}"
-                @click="${(e) => e.stopPropagation()}"
-              ></ha-slider>
+          ${showControls ? `
+            <div class="mushroom-actions">
+              ${activeControl === 'brightness' ? `
+                <div class="mushroom-brightness-control">
+                  <ha-slider
+                    min="0"
+                    max="100"
+                    step="1"
+                    value="${brightnessPct}"
+                    pin
+                  ></ha-slider>
+                </div>
+              ` : ''}
             </div>
           ` : ''}
         </div>
