@@ -1,7 +1,7 @@
 {
   "domain": "timer_motion_card",
   "name": "Timer Motion Card",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "documentation": "https://github.com/ryandidurlabs/timer-motion-card",
   "issue_tracker": "https://github.com/ryandidurlabs/timer-motion-card/issues",
   "codeowners": [],
