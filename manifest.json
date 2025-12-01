@@ -1,0 +1,10 @@
+{
+  "domain": "timer_motion_card",
+  "name": "Timer Motion Card",
+  "version": "1.0.0",
+  "documentation": "https://github.com/yourusername/timer-motion-card",
+  "issue_tracker": "https://github.com/yourusername/timer-motion-card/issues",
+  "codeowners": [],
+  "requirements": []
+}
+

@@ -1,0 +1,7 @@
+# Files to ignore in HACS
+install.sh
+*.example
+QUICK_START.md
+configuration.yaml.example
+ui-lovelace.yaml.example
+

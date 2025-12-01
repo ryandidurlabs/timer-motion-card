@@ -1,0 +1,41 @@
+# Example Lovelace configuration using the Timer Motion Card
+# Add this to your Lovelace dashboard
+
+title: Home
+views:
+  - title: Lights & Fans
+    cards:
+      # Example: Light with timer enabled
+      - type: custom:timer-motion-card
+        entity: light.bedroom_light
+        name: Bedroom Light
+        timer_enabled: true
+        timer_duration: 600  # 10 minutes in seconds
+        icon: mdi:lightbulb
+        show_icon: true
+        show_name: true
+
+      # Example: Fan with motion sensor enabled
+      - type: custom:timer-motion-card
+        entity: fan.bedroom_fan
+        name: Bedroom Fan
+        motion_enabled: true
+        motion_sensor: binary_sensor.bedroom_motion
+        motion_off_delay: 120  # 2 minutes after motion stops
+        icon: mdi:fan
+        show_icon: true
+        show_name: true
+
+      # Example: Light with both timer and motion sensor
+      - type: custom:timer-motion-card
+        entity: light.kitchen_light
+        name: Kitchen Light
+        timer_enabled: true
+        timer_duration: 300  # 5 minutes
+        motion_enabled: true
+        motion_sensor: binary_sensor.kitchen_motion
+        motion_off_delay: 180  # 3 minutes after motion stops
+        icon: mdi:lightbulb-outline
+        show_icon: true
+        show_name: true
+

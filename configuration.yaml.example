@@ -1,0 +1,25 @@
+# Example Home Assistant configuration
+# This file shows how to set up helper entities if needed
+# (The card works with existing entities, but you may want to create input_number helpers for timer duration)
+
+input_number:
+  # Optional: Create input numbers for timer durations if you want to adjust them via UI
+  bedroom_light_timer:
+    name: Bedroom Light Timer Duration
+    initial: 600
+    min: 60
+    max: 3600
+    step: 60
+    unit_of_measurement: seconds
+
+# Optional: Automation example for motion sensor (though the card handles this)
+# automation:
+#   - alias: "Bedroom Light Motion"
+#     trigger:
+#       - platform: state
+#         entity_id: binary_sensor.bedroom_motion
+#         to: 'on'
+#     action:
+#       - service: light.turn_on
+#         entity_id: light.bedroom_light
+
