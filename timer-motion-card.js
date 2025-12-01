@@ -221,11 +221,23 @@ class TimerMotionCard extends HTMLElement {
     }
 
     // Timer interval is managed by startTimer() method
-    // Only start timer if entity is already on
+    // Only start timer if entity is already on and no timer is running
     if (this.config.timer_enabled && this._hass && this._hass.states) {
       const entity = this._hass.states[this.config.entity];
-      if (entity && entity.state === 'on' && this.remainingTime <= 0) {
-        this.startTimer();
+      if (entity && entity.state === 'on') {
+        this.calculateRemainingTime();
+        if (this.remainingTime <= 0) {
+          // No active timer - start one
+          this.startTimer();
+        } else {
+          // Timer already running - just start the display interval
+          if (!this.timerInterval) {
+            this.timerInterval = setInterval(() => {
+              this.updateTimer();
+            }, 1000);
+          }
+          this.updateTimerDisplay();
+        }
       }
     }
   }
