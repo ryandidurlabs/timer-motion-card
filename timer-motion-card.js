@@ -38,13 +38,17 @@ class TimerMotionCard extends HTMLElement {
       ...config,
     };
 
-    this.render();
-    this.setupEventListeners();
+    if (this._hass) {
+      this.render();
+      this.setupEventListeners();
+    }
   }
 
   connectedCallback() {
-    this.render();
-    this.setupEventListeners();
+    if (this._hass) {
+      this.render();
+      this.setupEventListeners();
+    }
   }
 
   disconnectedCallback() {
@@ -57,33 +61,55 @@ class TimerMotionCard extends HTMLElement {
   }
 
   setupEventListeners() {
+    // Don't setup if hass is not available
+    if (!this._hass || !this._hass.connection) {
+      return;
+    }
+
+    // Clean up existing listeners
+    if (this.motionListener) {
+      this.motionListener();
+      this.motionListener = null;
+    }
+
     // Listen to entity state changes
     const entityId = this.config.entity;
-    if (entityId) {
-      this.hass.connection.subscribeEvents(
-        (ev) => {
-          if (ev.data.entity_id === entityId) {
-            this.updateEntityState();
-          }
-        },
-        'state_changed'
-      );
+    if (entityId && this._hass.connection) {
+      try {
+        this._hass.connection.subscribeEvents(
+          (ev) => {
+            if (ev.data && ev.data.entity_id === entityId) {
+              this.updateEntityState();
+            }
+          },
+          'state_changed'
+        );
+      } catch (e) {
+        console.warn('Timer Motion Card: Error subscribing to entity state changes', e);
+      }
     }
 
     // Listen to motion sensor if enabled
-    if (this.config.motion_enabled && this.config.motion_sensor) {
-      this.motionListener = this.hass.connection.subscribeEvents(
-        (ev) => {
-          if (ev.data.entity_id === this.config.motion_sensor) {
-            this.handleMotionChange(ev.data.new_state);
-          }
-        },
-        'state_changed'
-      );
+    if (this.config.motion_enabled && this.config.motion_sensor && this._hass.connection) {
+      try {
+        this.motionListener = this._hass.connection.subscribeEvents(
+          (ev) => {
+            if (ev.data && ev.data.entity_id === this.config.motion_sensor) {
+              this.handleMotionChange(ev.data.new_state);
+            }
+          },
+          'state_changed'
+        );
+      } catch (e) {
+        console.warn('Timer Motion Card: Error subscribing to motion sensor', e);
+      }
     }
 
     // Update timer display every second
     if (this.config.timer_enabled) {
+      if (this.timerInterval) {
+        clearInterval(this.timerInterval);
+      }
       this.timerInterval = setInterval(() => {
         this.updateTimer();
       }, 1000);
@@ -91,6 +117,8 @@ class TimerMotionCard extends HTMLElement {
   }
 
   handleMotionChange(newState) {
+    if (!newState) return;
+    
     const isMotion = newState.state === 'on' || newState.state === 'detected';
     
     if (isMotion) {
@@ -104,7 +132,8 @@ class TimerMotionCard extends HTMLElement {
     } else {
       // Motion cleared - wait for delay then turn off
       setTimeout(() => {
-        const currentMotionState = this.hass.states[this.config.motion_sensor];
+        if (!this._hass || !this._hass.states) return;
+        const currentMotionState = this._hass.states[this.config.motion_sensor];
         if (currentMotionState && 
             (currentMotionState.state === 'off' || currentMotionState.state === 'unavailable')) {
           this.callService('turn_off', this.config.entity);
@@ -124,9 +153,11 @@ class TimerMotionCard extends HTMLElement {
       this.updateTimerDisplay();
     } else if (this.remainingTime === 0 && this.config.timer_enabled) {
       // Timer expired - turn off entity
-      const entity = this.hass.states[this.config.entity];
-      if (entity && entity.state === 'on') {
-        this.callService('turn_off', this.config.entity);
+      if (this._hass && this._hass.states) {
+        const entity = this._hass.states[this.config.entity];
+        if (entity && entity.state === 'on') {
+          this.callService('turn_off', this.config.entity);
+        }
       }
       this.remainingTime = -1;
     }
@@ -143,7 +174,9 @@ class TimerMotionCard extends HTMLElement {
   }
 
   updateEntityState() {
-    const entity = this.hass.states[this.config.entity];
+    if (!this._hass || !this._hass.states) return;
+    
+    const entity = this._hass.states[this.config.entity];
     if (!entity) return;
 
     const stateElement = this.shadowRoot.querySelector('.entity-state');
@@ -172,12 +205,15 @@ class TimerMotionCard extends HTMLElement {
   }
 
   callService(service, entityId) {
+    if (!this._hass) return;
     const domain = entityId.split('.')[0];
-    this.hass.callService(domain, service, { entity_id: entityId });
+    this._hass.callService(domain, service, { entity_id: entityId });
   }
 
   toggleEntity() {
-    const entity = this.hass.states[this.config.entity];
+    if (!this._hass || !this._hass.states) return;
+    
+    const entity = this._hass.states[this.config.entity];
     if (!entity) return;
 
     if (entity.state === 'on') {
@@ -197,9 +233,9 @@ class TimerMotionCard extends HTMLElement {
   }
 
   render() {
-    if (!this.hass) return;
+    if (!this._hass || !this._hass.states) return;
 
-    const entity = this.hass.states[this.config.entity];
+    const entity = this._hass.states[this.config.entity];
     if (!entity) {
       this.shadowRoot.innerHTML = `
         <ha-card>
@@ -226,8 +262,8 @@ class TimerMotionCard extends HTMLElement {
 
     // Motion sensor status
     let motionHtml = '';
-    if (this.config.motion_enabled && this.config.motion_sensor) {
-      const motionEntity = this.hass.states[this.config.motion_sensor];
+    if (this.config.motion_enabled && this.config.motion_sensor && this._hass.states) {
+      const motionEntity = this._hass.states[this.config.motion_sensor];
       const motionActive = motionEntity && 
         (motionEntity.state === 'on' || motionEntity.state === 'detected');
       motionHtml = `
@@ -342,7 +378,10 @@ class TimerMotionCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    this.render();
+    if (this.config) {
+      this.render();
+      this.setupEventListeners();
+    }
   }
 
   get hass() {
