@@ -986,6 +986,11 @@ class TimerMotionCard extends HTMLElement {
               ` : ''}
             </div>
           ` : ''}
+          ${this.config.motion_enabled ? `
+            <div class="motion-icon-corner ${motionActive ? 'active' : ''}">
+              <ha-icon icon="mdi:motion-sensor"></ha-icon>
+            </div>
+          ` : ''}
         </div>
       </ha-card>
     `;
