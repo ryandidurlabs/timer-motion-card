@@ -532,10 +532,15 @@ class TimerMotionCard extends HTMLElement {
     const name = this.config.name || entity.attributes.friendly_name || entity.entity_id;
     
     // Safely get brightness - handle undefined/null for dimmable lights
-    const brightness = (entity.attributes && entity.attributes.brightness !== undefined) 
-      ? entity.attributes.brightness 
-      : (isOn ? 255 : 0);
-    const brightnessPct = brightness > 0 ? Math.round((brightness / 255) * 100) : 0;
+    let brightness = 0;
+    if (entity.attributes && entity.attributes.brightness !== undefined && entity.attributes.brightness !== null) {
+      brightness = Number(entity.attributes.brightness);
+      if (isNaN(brightness)) brightness = 0;
+    } else if (isOn && this.supportsBrightnessControl(entity)) {
+      // If light is on but brightness not set, default to 100%
+      brightness = 255;
+    }
+    const brightnessPct = brightness > 0 ? Math.max(0, Math.min(100, Math.round((brightness / 255) * 100))) : 0;
     
     // Mushroom-style color handling
     const lightRgbColor = this.getRGBColor(entity);
