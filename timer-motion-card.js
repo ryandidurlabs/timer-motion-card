@@ -881,16 +881,19 @@ class TimerMotionCard extends HTMLElement {
       </ha-card>
     `;
 
-    // Add click handler for card
-    const card = this.shadowRoot.querySelector('ha-card');
-    if (card) {
-      card.addEventListener('click', (e) => this.toggleEntity(e));
+    // Add click handler for state item (Mushroom style)
+    const stateItem = this.shadowRoot.querySelector('.mushroom-state-item');
+    if (stateItem) {
+      stateItem.addEventListener('click', (e) => this.handleCardClick(e));
     }
 
     // Add settings button handler
     const settingsBtn = this.shadowRoot.querySelector('.settings-button');
     if (settingsBtn) {
-      settingsBtn.addEventListener('click', (e) => this.openSettings(e));
+      settingsBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.openSettings(e);
+      });
     }
 
     // Add brightness slider handler
