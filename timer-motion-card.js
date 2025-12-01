@@ -277,6 +277,13 @@ class TimerMotionCard extends HTMLElement {
           const entity = this._hass.states[this.config.entity];
           if (entity && entity.state === 'on') {
             this.callService('turn_off', this.config.entity);
+            // Clear the timer interval
+            if (this.timerInterval) {
+              clearInterval(this.timerInterval);
+              this.timerInterval = null;
+            }
+            this.remainingTime = 0;
+            this.updateTimerDisplay();
           }
         }
         this.remainingTime = -1;
@@ -1360,18 +1367,40 @@ class TimerMotionCardEditor extends HTMLElement {
     `;
 
     // Add event listeners
-    const inputs = this.querySelectorAll('paper-input, ha-switch');
+    const inputs = this.querySelectorAll('paper-input, ha-switch, paper-dropdown-menu');
     inputs.forEach((input) => {
       const configValue = input.getAttribute('config-value');
-      input.addEventListener('change', (e) => {
-        const newConfig = { ...this._config };
-        if (input.tagName === 'HA-SWITCH') {
+      if (input.tagName === 'HA-SWITCH') {
+        input.addEventListener('change', (e) => {
+          const newConfig = { ...this._config };
           newConfig[configValue] = input.checked;
-        } else {
-          newConfig[configValue] = input.value;
-        }
-        this.configChanged(newConfig);
-      });
+          this.configChanged(newConfig);
+        });
+      } else if (input.tagName === 'PAPER-DROPDOWN-MENU') {
+        input.addEventListener('iron-select', (e) => {
+          const newConfig = { ...this._config };
+          const listbox = input.querySelector('paper-listbox');
+          if (listbox) {
+            const selected = listbox.selected;
+            const items = listbox.querySelectorAll('paper-item');
+            if (items[selected]) {
+              newConfig[configValue] = items[selected].textContent.trim();
+              this.configChanged(newConfig);
+            }
+          }
+        });
+      } else {
+        input.addEventListener('change', (e) => {
+          const newConfig = { ...this._config };
+          const value = input.value;
+          if (input.type === 'number') {
+            newConfig[configValue] = value ? parseInt(value, 10) : undefined;
+          } else {
+            newConfig[configValue] = value;
+          }
+          this.configChanged(newConfig);
+        });
+      }
     });
   }
 }
